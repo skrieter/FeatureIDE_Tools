@@ -48,6 +48,7 @@ public abstract class ABenchmark implements Runnable {
 	private static final String COMMENT = "#";
 
 	private static final Path MODELS_PATH;
+
 	static {
 		Path path = null;
 		try {
@@ -63,10 +64,10 @@ public abstract class ABenchmark implements Runnable {
 	protected final List<String> modelNames;
 	private final Random randSeed;
 	private long seed;
-	
+
 	private final static FeatureModel init(final String name) {
 		FeatureModel fm = new FeatureModel();
-		
+
 		Path p = MODELS_PATH.resolve(name).resolve("model.xml");
 		if (Files.exists(p)) {
 			try {
@@ -74,6 +75,8 @@ public abstract class ABenchmark implements Runnable {
 			} catch (FileNotFoundException | UnsupportedModelException e) {
 				e.printStackTrace();
 			}
+		} else {
+			throw new RuntimeException(p.toString());
 		}
 
 		return fm;
@@ -81,7 +84,8 @@ public abstract class ABenchmark implements Runnable {
 
 	public ABenchmark() {
 		try {
-			seed = Long.parseLong(Files.readAllLines(Paths.get(CONFIG_DIRECTORY + "seed.txt"), Charset.defaultCharset()).get(0));
+			seed = Long.parseLong(
+					Files.readAllLines(Paths.get(CONFIG_DIRECTORY + "seed.txt"), Charset.defaultCharset()).get(0));
 		} catch (Exception e) {
 			seed = System.currentTimeMillis();
 			logger.println("No random seed specified! Using current time.");
@@ -98,7 +102,7 @@ public abstract class ABenchmark implements Runnable {
 		if (lines != null) {
 			modelNames = new ArrayList<>(lines.size());
 			for (String modelName : lines) {
-				modelName = modelName.trim().toLowerCase();
+				modelName = modelName.trim();
 				if (!modelName.isEmpty() && !modelName.startsWith(COMMENT)) {
 					modelNames.add(modelName);
 				}
@@ -110,7 +114,7 @@ public abstract class ABenchmark implements Runnable {
 		randSeed = new Random(seed);
 		logger.println("First Random Seed: " + seed);
 	}
-	
+
 	protected final long getNextSeed() {
 		return randSeed.nextLong();
 	}

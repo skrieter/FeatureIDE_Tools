@@ -92,7 +92,7 @@ public class FeatureRemovalTester extends ABenchmark {
 	private static final double[] removeFactors = { 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9 };
 	private static final String[] algo = { "MY", "FIDE" };
 
-	private static final long feasibleTimeout = 10000;
+	private static final long feasibleTimeout = 5000;
 	private static final int rounds = 24;
 
 	private static long maxTimeout = 0;
@@ -140,20 +140,25 @@ public class FeatureRemovalTester extends ABenchmark {
 				final Set<String> orgFeatures = new HashSet<>(fm.getFeatureNames());
 				maxTimeout = 0;
 
+				final long nextGlobalSeed = getNextSeed();
+
 				for (int l = 0; l < algo.length; l++) {
 					final String algoName = algo[l];
-					csvWriter.setAutoSave(Paths.get("results/" + modelName + "." + algoName + ".csv"));
+					csvWriter.setAutoSave(Paths.get("output/" + modelName + "." + algoName + ".csv"));
 					long maxTime = 0;
 					logger.verbosePrintln("Timeout = " + maxTimeout);
-					
+
+					final Random globalRand = new Random(nextGlobalSeed);
+
 					for (int k = 0; k < removeFactors.length; k++) {
+
 						final double removeFactor = removeFactors[k];
 						final int featureCount = (int) Math.floor(removeFactor * orgFeatures.size());
 
 						logger.verbosePrintln("Remove Factor = " + removeFactor);
 
 						for (int i = 0; i < rounds; i++) {
-							final long nextSeed = getNextSeed();
+							final long nextSeed = globalRand.nextLong();
 							final Random rand = new Random(nextSeed);
 
 							logger.verbosePrintln("Random Seed: " + nextSeed);
@@ -183,7 +188,7 @@ public class FeatureRemovalTester extends ABenchmark {
 
 							final Node fmNode1 = run(fm, features, l, maxTimeout);
 							csvWriter.addValue(fmNode1 != null);
-							
+
 							if (l == 0) {
 								final long lastTime = logger.getTimer().getLastTime();
 								if (maxTime < lastTime) {
@@ -192,10 +197,10 @@ public class FeatureRemovalTester extends ABenchmark {
 							}
 						}
 					}
-					if (l == 0) {
-						maxTimeout = Math.max(feasibleTimeout, (maxTime / 250000));
-					}
 					csvWriter.createNewLine();
+					if (l == 0) {
+						maxTimeout = Math.max(feasibleTimeout, (maxTime / 500000));
+					}
 				}
 			}
 			logger.println("\nDone!.");
