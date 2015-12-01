@@ -40,7 +40,7 @@ import de.ovgu.featureide.fm.core.io.xml.XmlFeatureModelReader;
 /**
  * @author Sebastian Krieter
  */
-public abstract class ABenchmark implements Runnable {
+public abstract class ABenchmark {
 
 	private static final String MODELS_DIRECTORY = "de/ovgu/featureide/fm/benchmark/models";
 	private static final String CONFIG_DIRECTORY = "config/";

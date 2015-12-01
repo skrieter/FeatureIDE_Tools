@@ -33,37 +33,44 @@ public class ProgressTimer {
 	private long curTime = 0;
 
 	private long lastTime = -1;
+	
+	private static long getTime() {
+		return System.nanoTime();
+	}
 
 	public void start() {
-		startTime = System.nanoTime();
+		startTime = getTime();
 		curTime = startTime;
 		running = true;
 	}
 
 	public long stop() {
-		lastTime = System.nanoTime() - startTime;
+		if (running) {
+			lastTime = getTime() - startTime;
 
-		if (verbose) {
-			final double timeDiff = Math.floor(lastTime / 1000000.0) / 1000.0;
-			System.out.println(" -> " + timeDiff + "s");
+			printTime();
+
+			running = false;
 		}
-
-		running = false;
 		return lastTime;
 	}
 
 	public long split() {
 		final long startTime = curTime;
-		curTime = System.nanoTime();
+		curTime = getTime();
 
-		lastTime = System.nanoTime() - startTime;
+		lastTime = curTime - startTime;
 
+		printTime();
+
+		return lastTime;
+	}
+	
+	private void printTime() {
 		if (verbose) {
 			final double timeDiff = Math.floor(lastTime / 1000000.0) / 1000.0;
 			System.out.println(" -> " + timeDiff + "s");
 		}
-
-		return lastTime;
 	}
 
 	public final boolean isRunning() {
