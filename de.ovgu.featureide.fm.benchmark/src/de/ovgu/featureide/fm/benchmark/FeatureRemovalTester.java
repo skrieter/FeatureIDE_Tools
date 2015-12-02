@@ -64,8 +64,8 @@ public class FeatureRemovalTester extends ABenchmark {
 		@Override
 		public Node remove(FeatureModel fm, Collection<String> features) {
 			return Familiar.createNodes(fm, features).toCNF();
-		}		
-		
+		}
+
 		@Override
 		public String toString() {
 			return "FAMILIAR";
@@ -81,8 +81,8 @@ public class FeatureRemovalTester extends ABenchmark {
 				e.printStackTrace();
 				return null;
 			}
-		}		
-		
+		}
+
 		@Override
 		public String toString() {
 			return "MY";
@@ -108,8 +108,10 @@ public class FeatureRemovalTester extends ABenchmark {
 			try {
 				setFmNode(remover.remove(fm, features));
 			} catch (Throwable e) {
-				e.printStackTrace();
-				Runtime.getRuntime().halt(-1);
+				if (!(e instanceof ThreadDeath)) {
+					e.printStackTrace();
+					Runtime.getRuntime().halt(-1);
+				}
 			}
 			logger.getTimer().stop();
 		}
@@ -127,14 +129,15 @@ public class FeatureRemovalTester extends ABenchmark {
 	public static void main(String[] args) {
 		FeatureRemovalTester tester = new FeatureRemovalTester();
 		tester.run();
-		// tester.test();
+		//		tester.test();
 	}
 
-	private static final double[] removeFactors = { 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6,
-			0.65
-			// , 0.7, 0.75, 0.8, 0.85, 0.9, 0.95
+	private static final double[] removeFactors = { 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65
+	// , 0.7, 0.75, 0.8, 0.85, 0.9, 0.95
 	};
-	private static final IRemover[] algo = { new MyRemover(), new FIDERemover(), new FamiliarRemover() };
+	private static final IRemover[] algo = { new MyRemover(), new FIDERemover()
+	//		,new FamiliarRemover() 
+	};
 
 	private static final long feasibleTimeout = 1000;
 	private static final int randRounds = 1;
@@ -182,7 +185,7 @@ public class FeatureRemovalTester extends ABenchmark {
 
 				final FeatureModel fm = initModel(i1);
 				final Set<String> orgFeatures = new HashSet<>(fm.getFeatureNames());
-//				maxTimeout = 0;
+				//				maxTimeout = 0;
 				maxTimeout = feasibleTimeout;
 
 				final long nextGlobalSeed = getNextSeed();
@@ -209,8 +212,7 @@ public class FeatureRemovalTester extends ABenchmark {
 							final double removeFactor = removeFactors[i4];
 							final int featureCount = (int) Math.floor(removeFactor * orgFeatures.size());
 
-							final List<String> removeFeatures = Collections
-									.unmodifiableList(shuffledFeatures.subList(0, featureCount));
+							final List<String> removeFeatures = Collections.unmodifiableList(shuffledFeatures.subList(0, featureCount));
 
 							logger.verbosePrintln("Remove Factor = " + removeFactor);
 							logger.verbosePrintln("\tRemoving the following features:");
@@ -224,8 +226,8 @@ public class FeatureRemovalTester extends ABenchmark {
 							run(fm, removeFeatures, algoName, maxTimeout);
 
 							for (int i5 = 0; i5 < nonRandRounds; i5++) {
-								logger.println(modelName + ", " + algoName + ", " + (i3 + 1) + "/" + randRounds + ", "
-										+ removeFactor + ", " + (i5 + 1) + "/" + nonRandRounds + ", " + nextSeed);
+								logger.println(modelName + ", " + algoName + ", " + (i3 + 1) + "/" + randRounds + ", " + removeFactor + ", " + (i5 + 1) + "/"
+										+ nonRandRounds + ", " + nextSeed);
 
 								System.gc();
 
@@ -250,7 +252,7 @@ public class FeatureRemovalTester extends ABenchmark {
 					}
 					csvWriter.createNewLine();
 					if (i2 == 0) {
-//						maxTimeout = Math.max(feasibleTimeout, (maxTime / 500000));
+						//						maxTimeout = Math.max(feasibleTimeout, (maxTime / 500000));
 					}
 				}
 			}

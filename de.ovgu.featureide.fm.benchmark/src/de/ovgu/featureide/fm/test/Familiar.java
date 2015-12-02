@@ -7,11 +7,11 @@ import org.prop4j.Node;
 import org.xtext.example.mydsl.fML.SliceMode;
 
 import de.ovgu.featureide.fm.core.FeatureModel;
-import fr.unice.polytech.modalis.familiar.fm.featureide.FeatureIDEtoFML;
-import fr.unice.polytech.modalis.familiar.gui.Converter;
-import fr.unice.polytech.modalis.familiar.operations.featureide.FMSlicerSAT;
-import fr.unice.polytech.modalis.familiar.operations.featureide.SATBuilder;
-import fr.unice.polytech.modalis.familiar.variable.FeatureModelVariable;
+import fr.familiar.fm.featureide.FeatureIDEtoFML;
+import fr.familiar.gui.Converter;
+import fr.familiar.operations.featureide.FMSlicerSAT;
+import fr.familiar.operations.featureide.SATBuilder;
+import fr.familiar.variable.FeatureModelVariable;
 
 public class Familiar {
 	
