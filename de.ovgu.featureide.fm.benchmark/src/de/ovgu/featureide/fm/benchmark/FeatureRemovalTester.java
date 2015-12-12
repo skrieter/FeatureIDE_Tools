@@ -37,7 +37,7 @@ import de.ovgu.featureide.fm.core.FeatureModel;
 import de.ovgu.featureide.fm.core.editing.NodeCreator;
 import de.ovgu.featureide.fm.core.editing.cnf.ModelComparator;
 import de.ovgu.featureide.fm.core.editing.cnf.UnkownLiteralException;
-import de.ovgu.featureide.fm.test.Familiar;
+import de.ovgu.featureide.fm.core.editing.remove.FeatureRemover;
 
 /**
  * @author Sebastian Krieter
@@ -60,21 +60,32 @@ public class FeatureRemovalTester extends ABenchmark {
 		}
 	}
 
-	private static class FamiliarRemover implements IRemover {
-		@Override
-		public Node remove(FeatureModel fm, Collection<String> features) {
-			return Familiar.createNodes(fm, features).toCNF();
-		}
-
-		@Override
-		public String toString() {
-			return "FAMILIAR";
-		}
-	}
+//	private static class FamiliarRemover implements IRemover {
+//		@Override
+//		public Node remove(FeatureModel fm, Collection<String> features) {
+//			return Familiar.createNodes(fm, features).toCNF();
+//		}
+//
+//		@Override
+//		public String toString() {
+//			return "FAMILIAR";
+//		}
+//	}
 
 	private static class MyRemover implements IRemover {
+
+		private final int PARAM_REDUNDANCY_REMOVAL;
+		private final int PARAM_FEATURE_ORDER;
+
+		public MyRemover(int PARAM_REDUNDANCY_REMOVAL, int PARAM_FEATURE_ORDER) {
+			this.PARAM_REDUNDANCY_REMOVAL = PARAM_REDUNDANCY_REMOVAL;
+			this.PARAM_FEATURE_ORDER = PARAM_FEATURE_ORDER;
+		}
+
 		@Override
 		public Node remove(FeatureModel fm, Collection<String> features) {
+			FeatureRemover.PARAM_REDUNDANCY_REMOVAL = PARAM_REDUNDANCY_REMOVAL;
+			FeatureRemover.PARAM_FEATURE_ORDER = PARAM_FEATURE_ORDER;
 			try {
 				return FMCorePlugin.removeFeatures(fm, features);
 			} catch (TimeoutException | UnkownLiteralException e) {
@@ -85,7 +96,11 @@ public class FeatureRemovalTester extends ABenchmark {
 
 		@Override
 		public String toString() {
-			return "MY";
+			StringBuilder sb = new StringBuilder("MY-");
+			sb.append(PARAM_REDUNDANCY_REMOVAL);
+			sb.append("-");
+			sb.append(PARAM_FEATURE_ORDER);
+			return sb.toString();
 		}
 	}
 
@@ -100,6 +115,7 @@ public class FeatureRemovalTester extends ABenchmark {
 			this.fm = fm;
 			this.features = features;
 			this.remover = remover;
+			FeatureRemover.featureModel = fm;
 		}
 
 		@Override
@@ -109,7 +125,7 @@ public class FeatureRemovalTester extends ABenchmark {
 			} catch (Throwable e) {
 				if (!(e instanceof ThreadDeath)) {
 					e.printStackTrace();
-					Runtime.getRuntime().halt(-1);
+					System.exit(-1);
 				}
 			}
 		}
@@ -143,18 +159,35 @@ public class FeatureRemovalTester extends ABenchmark {
 	// 0.9, 0.95, 0.96, 0.97, 0.98, 0.99
 	// };
 
-	private static final double[] removeFactors = { 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65
-	// , 0.7, 0.75, 0.8, 0.85, 0.9, 0.95
+	private static final double[] removeFactors = { 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95
 	};
-	private static final IRemover[] algo = { new MyRemover(), new FIDERemover()
+	private static final IRemover[] algo = {
+			//		new MyRemover(FeatureRemover.RR_NONE, FeatureRemover.FO_PREORDER),
+			new MyRemover(FeatureRemover.RR_NONE, FeatureRemover.FO_MINCLAUSE),
+			new MyRemover(FeatureRemover.RR_NONE, FeatureRemover.FO_POSTORDER),
+			new MyRemover(FeatureRemover.RR_NONE, FeatureRemover.FO_REV_LEVELORDER),
+			//		new MyRemover(FeatureRemover.RR_SIMPLE, FeatureRemover.FO_PREORDER),
+			new MyRemover(FeatureRemover.RR_SIMPLE, FeatureRemover.FO_MINCLAUSE),
+			new MyRemover(FeatureRemover.RR_SIMPLE, FeatureRemover.FO_POSTORDER),
+			new MyRemover(FeatureRemover.RR_SIMPLE, FeatureRemover.FO_REV_LEVELORDER),
+			//		new MyRemover(FeatureRemover.RR_COMPLEX, FeatureRemover.FO_PREORDER),
+			new MyRemover(FeatureRemover.RR_COMPLEX, FeatureRemover.FO_MINCLAUSE),
+			new MyRemover(FeatureRemover.RR_COMPLEX, FeatureRemover.FO_POSTORDER),
+			new MyRemover(FeatureRemover.RR_COMPLEX, FeatureRemover.FO_REV_LEVELORDER),
+			//		new MyRemover(FeatureRemover.RR_SIMPLE | FeatureRemover.RR_COMPLEX, FeatureRemover.FO_PREORDER),
+			new MyRemover(FeatureRemover.RR_SIMPLE | FeatureRemover.RR_COMPLEX, FeatureRemover.FO_MINCLAUSE),
+			new MyRemover(FeatureRemover.RR_SIMPLE | FeatureRemover.RR_COMPLEX, FeatureRemover.FO_POSTORDER),
+			new MyRemover(FeatureRemover.RR_SIMPLE | FeatureRemover.RR_COMPLEX, FeatureRemover.FO_REV_LEVELORDER),
+			new FIDERemover()
 	//		,new FamiliarRemover() 
 	};
 
-	private static final long feasibleTimeout = 1000;
-	private static final int randRounds = 1;
-	private static final int nonRandRounds = 1;
+	private static final long maxTimeout = 300000;
+	private static final int randRounds = 20;
+	private static final int nonRandRounds = 8;
 
-	private static long maxTimeout = 0;
+	private static final long[] randomSeeds = new long[randRounds];
+	private static final int timeoutLimit = 1; //randomSeeds.length >> 1;
 
 	@SuppressWarnings("deprecation")
 	private Node run(FeatureModel fm, List<String> features, IRemover remover, long timeout) {
@@ -187,9 +220,11 @@ public class FeatureRemovalTester extends ABenchmark {
 	}
 
 	public void run() {
+		for (int i = 0; i < randRounds; i++) {
+			randomSeeds[i] = getNextSeed();
+		}
+		logger.getTimer().setVerbose(false);
 		try {
-			logger.getTimer().setVerbose(false);
-
 			for (int i1 = 0; i1 < modelNames.size(); i1++) {
 				final String modelName = modelNames.get(i1);
 
@@ -197,32 +232,41 @@ public class FeatureRemovalTester extends ABenchmark {
 
 				final FeatureModel fm = initModel(i1);
 				final Set<String> orgFeatures = new HashSet<>(fm.getFeatureNames());
-				//				maxTimeout = 0;
-				maxTimeout = feasibleTimeout;
-
-				final long nextGlobalSeed = getNextSeed();
 
 				for (int i2 = 0; i2 < algo.length; i2++) {
 					final IRemover algoName = algo[i2];
 					csvWriter.setAutoSave(Paths.get("output/" + modelName + "." + algoName + ".csv"));
-					long maxTime = 0;
 					logger.verbosePrintln("Timeout = " + maxTimeout);
 
-					final Random globalRand = new Random(nextGlobalSeed);
+					for (int i4 = 0; i4 < removeFactors.length; i4++) {
+						final double removeFactor = removeFactors[i4];
+						final int featureCount = (int) Math.floor(removeFactor * orgFeatures.size());
 
-					for (int i3 = 0; i3 < randRounds; i3++) {
-						final long nextSeed = globalRand.nextLong();
-						final Random rand = new Random(nextSeed);
+						int timeoutCount = 0;
 
-						logger.verbosePrintln("Random Seed: " + nextSeed);
+						for (int i3 = 0; i3 < randomSeeds.length; i3++) {
+							final long nextSeed = randomSeeds[i3];
+							logger.verbosePrintln("Random Seed: " + nextSeed);
 
-						List<String> shuffledFeatures = new ArrayList<>(orgFeatures);
-						Collections.shuffle(shuffledFeatures, rand);
+							if (timeoutCount > timeoutLimit) {
+								logger.verbosePrintln("\tTimeout!");
+								for (int j1 = i3; j1 < randomSeeds.length; j1++) {
+									for (int j2 = 0; j2 < nonRandRounds; j2++) {
+										csvWriter.createNewLine();
+										csvWriter.addValue(modelName);
+										csvWriter.addValue(removeFactor);
+										csvWriter.addValue(j1);
+										csvWriter.addValue(nextSeed);
+										csvWriter.addValue(maxTimeout * 1000000);
+										csvWriter.addValue(true);
+										csvWriter.addValue(true);
+									}
+								}
+								break;
+							}
 
-						for (int i4 = 0; i4 < removeFactors.length; i4++) {
-
-							final double removeFactor = removeFactors[i4];
-							final int featureCount = (int) Math.floor(removeFactor * orgFeatures.size());
+							final List<String> shuffledFeatures = new ArrayList<>(orgFeatures);
+							Collections.shuffle(shuffledFeatures, new Random(nextSeed));
 
 							final List<String> removeFeatures = Collections.unmodifiableList(shuffledFeatures.subList(0, featureCount));
 
@@ -234,38 +278,46 @@ public class FeatureRemovalTester extends ABenchmark {
 								}
 							}
 
-							logger.println(modelName + ", " + algoName + ", dummy round, " + removeFactor + ", " + nextSeed);
+							logger.println(modelName + ", " + algoName + ", " + removeFactor + ", dummy round, " + nextSeed);
 							run(fm, removeFeatures, algoName, maxTimeout);
+							
+								for (int i5 = 0; i5 < nonRandRounds; i5++) {
+									logger.println(modelName + ", " + algoName + ", " + removeFactor + ", " + (i3 + 1) + "/" + randRounds + ", " + (i5 + 1)
+											+ "/" + nonRandRounds + ", " + nextSeed);
 
-							for (int i5 = 0; i5 < nonRandRounds; i5++) {
-								logger.println(modelName + ", " + algoName + ", " + (i3 + 1) + "/" + randRounds + ", " + removeFactor + ", " + (i5 + 1) + "/"
-										+ nonRandRounds + ", " + nextSeed);
+									System.gc();
 
-								System.gc();
+									final Node fmNode1 = run(fm, removeFeatures, algoName, maxTimeout);
 
-								final Node fmNode1 = run(fm, removeFeatures, algoName, maxTimeout);
+									final boolean timeout = fmNode1 == null;
 
-								csvWriter.createNewLine();
-								csvWriter.addValue(modelName);
-								csvWriter.addValue(removeFactor);
-								csvWriter.addValue(i3);
-								csvWriter.addValue(nextSeed);
-								csvWriter.addValue(logger.getTimer().getLastTime());
-								csvWriter.addValue(fmNode1 != null);
+									csvWriter.createNewLine();
+									csvWriter.addValue(modelName);
+									csvWriter.addValue(removeFactor);
+									csvWriter.addValue(i3);
+									csvWriter.addValue(nextSeed);
+									csvWriter.addValue(logger.getTimer().getLastTime());
+									csvWriter.addValue(!timeout);
+									csvWriter.addValue(false);
 
-								if (i2 == 0) {
-									final long lastTime = logger.getTimer().getLastTime();
-									if (maxTime < lastTime) {
-										maxTime = lastTime;
+									if (timeout) {
+										timeoutCount++;
+										for (int j = i5 + 1; j < nonRandRounds; j++) {
+											csvWriter.createNewLine();
+											csvWriter.addValue(modelName);
+											csvWriter.addValue(removeFactor);
+											csvWriter.addValue(i3);
+											csvWriter.addValue(nextSeed);
+											csvWriter.addValue(logger.getTimer().getLastTime());
+											csvWriter.addValue(!timeout);
+											csvWriter.addValue(true);
+										}
+										break;
 									}
 								}
 							}
-						}
 					}
 					csvWriter.createNewLine();
-					if (i2 == 0) {
-						//						maxTimeout = Math.max(feasibleTimeout, (maxTime / 500000));
-					}
 				}
 			}
 			logger.println("\nDone!.");
@@ -314,7 +366,7 @@ public class FeatureRemovalTester extends ABenchmark {
 						nodeArray[l] = run(fm, features, algo[l]);
 					}
 					for (int i1 = 0; i1 < algo.length; i1++) {
-						for (int i2 = i1; i2 < algo.length; i2++) {
+						for (int i2 = i1 + 1; i2 < algo.length; i2++) {
 							final Node fmNode1 = nodeArray[i1];
 							final Node fmNode2 = nodeArray[i2];
 

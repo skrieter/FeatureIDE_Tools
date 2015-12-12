@@ -1,11 +1,13 @@
 email
 gpl
 berkeleyDB1
-berkeleyDB2
+#berkeleyDB2
 violet
 dell
 eShopSplot
 eShopFIDE
+auto1
+auto2
 Splot501
 Splot502
 Splot503
@@ -36,7 +38,6 @@ Splot2007
 Splot2008
 Splot2009
 Splot2010
-auto1
 Splot5001
 Splot5002
 Splot5003
@@ -47,4 +48,3 @@ Splot5007
 Splot5008
 Splot5009
 Splot5010
-auto2
