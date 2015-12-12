@@ -104,7 +104,6 @@ public class FeatureRemovalTester extends ABenchmark {
 
 		@Override
 		public void run() {
-			logger.getTimer().start();
 			try {
 				setFmNode(remover.remove(fm, features));
 			} catch (Throwable e) {
@@ -113,7 +112,6 @@ public class FeatureRemovalTester extends ABenchmark {
 					Runtime.getRuntime().halt(-1);
 				}
 			}
-			logger.getTimer().stop();
 		}
 
 		public Node getFmNode() {
@@ -132,6 +130,19 @@ public class FeatureRemovalTester extends ABenchmark {
 		//		tester.test();
 	}
 
+	// private static final double[] removeFactors = {
+	// 0.01, 0.02, 0.03, 0.04, 0.05,
+	// 0.1, 0.15,
+	// 0.2, 0.25,
+	// 0.3, 0.35,
+	// 0.4, 0.45, 0.46, 0.47, 0.48, 0.49,
+	// 0.5, 0.51, 0.52, 0.53, 0.54, 0.55, 0.56, 0.57, 0.58, 0.59,
+	// 0.6, 0.61, 0.62, 0.63, 0.64, 0.65, 0.66, 0.67, 0.68, 0.69,
+	// 0.7, 0.71, 0.72, 0.73, 0.74, 0.75, 0.76, 0.77, 0.78, 0.79,
+	// 0.8, 0.85,
+	// 0.9, 0.95, 0.96, 0.97, 0.98, 0.99
+	// };
+
 	private static final double[] removeFactors = { 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65
 	// , 0.7, 0.75, 0.8, 0.85, 0.9, 0.95
 	};
@@ -149,6 +160,7 @@ public class FeatureRemovalTester extends ABenchmark {
 	private Node run(FeatureModel fm, List<String> features, IRemover remover, long timeout) {
 		final TestRunner testRunner = new TestRunner(fm, features, remover);
 		Thread thread = new Thread(testRunner);
+		logger.getTimer().start();
 		thread.start();
 		try {
 			thread.join(timeout);
@@ -222,7 +234,7 @@ public class FeatureRemovalTester extends ABenchmark {
 								}
 							}
 
-							logger.println(modelName + ", dummy round, " + nextSeed);
+							logger.println(modelName + ", " + algoName + ", dummy round, " + removeFactor + ", " + nextSeed);
 							run(fm, removeFeatures, algoName, maxTimeout);
 
 							for (int i5 = 0; i5 < nonRandRounds; i5++) {
