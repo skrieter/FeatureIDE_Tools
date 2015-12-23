@@ -164,16 +164,16 @@ public class FeatureRemovalTester extends ABenchmark {
 	private static final IRemover[] algo = {
 			//		new MyRemover(FeatureRemover.RR_NONE, FeatureRemover.FO_PREORDER),
 			new MyRemover(FeatureRemover.RR_NONE, FeatureRemover.FO_MINCLAUSE),
-			new MyRemover(FeatureRemover.RR_NONE, FeatureRemover.FO_POSTORDER),
-			new MyRemover(FeatureRemover.RR_NONE, FeatureRemover.FO_REV_LEVELORDER),
+			//		new MyRemover(FeatureRemover.RR_NONE, FeatureRemover.FO_POSTORDER),
+			//		new MyRemover(FeatureRemover.RR_NONE, FeatureRemover.FO_REV_LEVELORDER),
 			//		new MyRemover(FeatureRemover.RR_SIMPLE, FeatureRemover.FO_PREORDER),
 			new MyRemover(FeatureRemover.RR_SIMPLE, FeatureRemover.FO_MINCLAUSE),
-			new MyRemover(FeatureRemover.RR_SIMPLE, FeatureRemover.FO_POSTORDER),
-			new MyRemover(FeatureRemover.RR_SIMPLE, FeatureRemover.FO_REV_LEVELORDER),
+			//		new MyRemover(FeatureRemover.RR_SIMPLE, FeatureRemover.FO_POSTORDER),
+			//		new MyRemover(FeatureRemover.RR_SIMPLE, FeatureRemover.FO_REV_LEVELORDER),
 			//		new MyRemover(FeatureRemover.RR_COMPLEX, FeatureRemover.FO_PREORDER),
-			new MyRemover(FeatureRemover.RR_COMPLEX, FeatureRemover.FO_MINCLAUSE),
-			new MyRemover(FeatureRemover.RR_COMPLEX, FeatureRemover.FO_POSTORDER),
-			new MyRemover(FeatureRemover.RR_COMPLEX, FeatureRemover.FO_REV_LEVELORDER),
+			//		new MyRemover(FeatureRemover.RR_COMPLEX, FeatureRemover.FO_MINCLAUSE),
+			//		new MyRemover(FeatureRemover.RR_COMPLEX, FeatureRemover.FO_POSTORDER),
+			//		new MyRemover(FeatureRemover.RR_COMPLEX, FeatureRemover.FO_REV_LEVELORDER),
 			//		new MyRemover(FeatureRemover.RR_SIMPLE | FeatureRemover.RR_COMPLEX, FeatureRemover.FO_PREORDER),
 			new MyRemover(FeatureRemover.RR_SIMPLE | FeatureRemover.RR_COMPLEX, FeatureRemover.FO_MINCLAUSE),
 			new MyRemover(FeatureRemover.RR_SIMPLE | FeatureRemover.RR_COMPLEX, FeatureRemover.FO_POSTORDER),
@@ -182,12 +182,13 @@ public class FeatureRemovalTester extends ABenchmark {
 	//		,new FamiliarRemover() 
 	};
 
-	private static final long maxTimeout = 300000;
-	private static final int randRounds = 20;
-	private static final int nonRandRounds = 8;
+	private static final long maxTimeout = 600000;
+	private static final long dummyTimeout = 1000;
+	private static final int randRounds = 10;
+	private static final int nonRandRounds = 7;
 
 	private static final long[] randomSeeds = new long[randRounds];
-	private static final int timeoutLimit = 1; //randomSeeds.length >> 1;
+	private static final int timeoutLimit = 0; //randomSeeds.length >> 1;
 
 	@SuppressWarnings("deprecation")
 	private Node run(FeatureModel fm, List<String> features, IRemover remover, long timeout) {
@@ -279,7 +280,11 @@ public class FeatureRemovalTester extends ABenchmark {
 							}
 
 							logger.println(modelName + ", " + algoName + ", " + removeFactor + ", dummy round, " + nextSeed);
-							run(fm, removeFeatures, algoName, maxTimeout);
+							final long endTime = System.currentTimeMillis() + dummyTimeout - 1;
+							int dummyCount = 100;
+							do {
+								run(fm, removeFeatures, algoName, dummyTimeout);
+							} while(endTime > System.currentTimeMillis() && dummyCount-- > 0);
 							
 								for (int i5 = 0; i5 < nonRandRounds; i5++) {
 									logger.println(modelName + ", " + algoName + ", " + removeFactor + ", " + (i3 + 1) + "/" + randRounds + ", " + (i5 + 1)
