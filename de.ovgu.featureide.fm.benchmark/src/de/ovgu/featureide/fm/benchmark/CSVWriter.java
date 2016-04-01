@@ -3,6 +3,7 @@ package de.ovgu.featureide.fm.benchmark;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
@@ -15,10 +16,33 @@ public class CSVWriter {
 	private String separator = ";";
 	private List<String> header = null;
 
+	private Path outputPath = Paths.get("");
 	private Path p;
 
-	public void setAutoSave(Path p) {
-		this.p = p;
+	public Path getOutputPath() {
+		return outputPath;
+	}
+
+	public boolean setOutputPath(Path outputPath) {
+		if (Files.isDirectory(outputPath)) {
+			this.outputPath = outputPath;
+			return true;
+		} else if (!Files.exists(outputPath)) {
+			try {
+				Files.createDirectories(outputPath);
+			} catch (IOException e) {
+				e.printStackTrace();
+				return false;
+			}
+			this.outputPath = outputPath;
+			return true;
+		} else {
+			return false;
+		}
+	}
+
+	public void setAutoSave(Path fileName) {
+		p = outputPath.resolve(fileName);
 		try {
 			Files.deleteIfExists(p);
 			Files.createFile(p);
@@ -61,6 +85,10 @@ public class CSVWriter {
 	}
 
 	public void createNewLine() {
+		values.add(new ArrayList<String>());
+	}
+	
+	public void flush() {
 		if (p != null && !values.isEmpty()) {
 			try {
 				StringBuilder sb = new StringBuilder();
@@ -70,7 +98,6 @@ public class CSVWriter {
 				e.printStackTrace();
 			}
 		}
-		values.add(new ArrayList<String>());
 	}
 
 	public void addValue(Object o) {

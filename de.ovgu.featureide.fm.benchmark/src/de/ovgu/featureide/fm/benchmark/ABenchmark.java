@@ -29,9 +29,13 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Properties;
 import java.util.Random;
 
+import de.ovgu.featureide.fm.benchmark.properties.IProperty;
+import de.ovgu.featureide.fm.benchmark.properties.Seed;
 import de.ovgu.featureide.fm.core.FMCorePlugin;
 import de.ovgu.featureide.fm.core.FeatureModel;
 import de.ovgu.featureide.fm.core.io.UnsupportedModelException;
@@ -46,6 +50,7 @@ public abstract class ABenchmark {
 	private static final String CONFIG_DIRECTORY = "config/";
 
 	private static final String COMMENT = "#";
+	private static final String STOP_MARK = "###";
 
 	private static final Path MODELS_PATH;
 
@@ -63,7 +68,7 @@ public abstract class ABenchmark {
 
 	protected final List<String> modelNames;
 	private final Random randSeed;
-	private long seed;
+	private final Seed seed = new Seed();
 
 	private final static FeatureModel init(final String name) {
 		FeatureModel fm = new FeatureModel();
@@ -81,15 +86,37 @@ public abstract class ABenchmark {
 
 		return fm;
 	}
-
-	public ABenchmark() {
+	
+	private final List<IProperty> propertyList = new LinkedList<>();
+	
+	protected void addProperty(IProperty property) {
+		propertyList.add(property);
+	}
+	
+	private void readProperties() {
+		final Path path = Paths.get(CONFIG_DIRECTORY + "config.properties");
+		logger.print("Reading config file. (" + path.toString()+ ") ... ");
+		final Properties properties = new Properties();
 		try {
-			seed = Long.parseLong(
-					Files.readAllLines(Paths.get(CONFIG_DIRECTORY + "seed.txt"), Charset.defaultCharset()).get(0));
-		} catch (Exception e) {
-			seed = System.currentTimeMillis();
-			logger.println("No random seed specified! Using current time.");
+			properties.load(Files.newInputStream(path));
+			logger.println("Success!");
+		} catch (IOException e) {
+			logger.println("Fail! -> " + e.getMessage());
 		}
+		for (IProperty prop : propertyList) {
+			logger.print("\t" + prop.getKey() + " = ");
+			boolean success = prop.setValue(properties.getProperty(prop.getKey()));
+			logger.print(prop.getValue().toString());
+			logger.println(success ? "" : " (default value!)");
+		}
+	}
+
+	protected abstract void createProperties();
+	
+	public ABenchmark() {
+		addProperty(seed);
+		createProperties();
+		readProperties();
 
 		List<String> lines = null;
 		try {
@@ -100,19 +127,25 @@ public abstract class ABenchmark {
 		}
 
 		if (lines != null) {
+			boolean pause = false;
 			modelNames = new ArrayList<>(lines.size());
 			for (String modelName : lines) {
 				modelName = modelName.trim();
-				if (!modelName.isEmpty() && !modelName.startsWith(COMMENT)) {
-					modelNames.add(modelName);
+				if (!modelName.isEmpty()) {
+					if (modelName.startsWith(COMMENT)) {
+						if (modelName.equals(STOP_MARK)) {
+							pause = !pause;
+						}
+					} else if (!pause) {
+						modelNames.add(modelName);
+					}
 				}
 			}
 		} else {
 			modelNames = Collections.<String> emptyList();
 		}
 
-		randSeed = new Random(seed);
-		logger.println("First Random Seed: " + seed);
+		randSeed = new Random(seed.getValue());
 	}
 
 	protected final long getNextSeed() {
