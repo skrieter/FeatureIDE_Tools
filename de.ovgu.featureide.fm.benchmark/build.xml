@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<project name="FIDE Tools" default="jar" basedir=".">
+
+	<target name="jar">
+		<subant target="">
+			<fileset dir="../fide/plugins/de.ovgu.featureide.fm.core" includes="build_jar.xml" />
+		</subant>
+		<copy file="../fide/plugins/de.ovgu.featureide.fm.core\de.ovgu.featureide.lib.fm.jar" todir="lib" />
+
+		<mkdir dir="build/classes" />
+		<javac srcdir="src" destdir="build/classes" includeantruntime="false" source="1.7" 
+			classpath="lib/de.ovgu.featureide.lib.fm.jar">
+		</javac>
+
+		<mkdir dir="build/jar" />
+		<jar destfile="build/jar/de.ovgu.featureide.lib.benchmark.jar" basedir="build/classes" compress="true">
+		</jar>
+	</target>
+
+</project>
