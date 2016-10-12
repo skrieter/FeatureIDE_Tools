@@ -1,5 +1,7 @@
 package de.ovgu.featureide.fm.benchmark.properties;
 
+import de.ovgu.featureide.fm.benchmark.ABenchmark;
+
 public abstract class AProperty<T> implements IProperty {
 
 	private final String key;
@@ -7,6 +9,7 @@ public abstract class AProperty<T> implements IProperty {
 
 	public AProperty(String key) {
 		this.key = key;
+		ABenchmark.addProperty(this);
 	}
 
 	public T getValue() {
@@ -35,7 +38,7 @@ public abstract class AProperty<T> implements IProperty {
 
 	@Override
 	public String toString() {
-		return value != null ? value.toString() : "null";
+		return value != null ? value.toString() : "no value";
 	}
 
 }

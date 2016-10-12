@@ -20,13 +20,17 @@
  */
 package de.ovgu.featureide.fm.benchmark;
 
+import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
-import java.net.URISyntaxException;
+import java.io.PrintStream;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.sql.Timestamp;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedList;
@@ -36,66 +40,83 @@ import java.util.Random;
 
 import de.ovgu.featureide.fm.benchmark.properties.IProperty;
 import de.ovgu.featureide.fm.benchmark.properties.Seed;
-import de.ovgu.featureide.fm.core.FMCorePlugin;
-import de.ovgu.featureide.fm.core.FeatureModel;
-import de.ovgu.featureide.fm.core.io.UnsupportedModelException;
-import de.ovgu.featureide.fm.core.io.xml.XmlFeatureModelReader;
+import de.ovgu.featureide.fm.benchmark.properties.StringProperty;
+import de.ovgu.featureide.fm.benchmark.properties.Timeout;
+import de.ovgu.featureide.fm.core.Logger;
+import de.ovgu.featureide.fm.core.base.IFeatureModel;
+import de.ovgu.featureide.fm.core.base.impl.FMFactoryManager;
+import de.ovgu.featureide.fm.core.io.manager.FileHandler;
+import de.ovgu.featureide.fm.core.io.xml.XmlFeatureModelFormat;
 
 /**
  * @author Sebastian Krieter
  */
 public abstract class ABenchmark {
 
-	private static final String MODELS_DIRECTORY = "de/ovgu/featureide/fm/benchmark/models";
-	private static final String CONFIG_DIRECTORY = "config/";
+	private static final List<IProperty> propertyList = new LinkedList<>();
+
+	protected static abstract class ATestRunner<T> implements Runnable {
+
+		private T result;
+
+		@Override
+		public void run() {
+			result = null;
+			try {
+				result = execute();
+			} catch (Throwable e) {
+				if (!(e instanceof ThreadDeath)) {
+					e.printStackTrace();
+					System.exit(-1);
+				}
+			}
+		}
+
+		protected abstract T execute();
+
+		public T getResult() {
+			return result;
+		}
+
+	}
+
+	private static final String MODELS_DIRECTORY = "models";
+	private static final String CONFIG_DIRECTORY = "config";
 
 	private static final String COMMENT = "#";
 	private static final String STOP_MARK = "###";
 
-	private static final Path MODELS_PATH;
-
-	static {
-		Path path = null;
-		try {
-			path = Paths.get(ClassLoader.getSystemResource(MODELS_DIRECTORY).toURI());
-		} catch (URISyntaxException e) {
-		}
-		MODELS_PATH = path;
-	}
-
-	protected final ProgressLogger logger = new ProgressLogger();
+	protected final static ProgressLogger logger = new ProgressLogger();
 	protected final CSVWriter csvWriter = new CSVWriter();
 
 	protected final List<String> modelNames;
 	private final Random randSeed;
-	private final Seed seed = new Seed();
 
-	private final static FeatureModel init(final String name) {
-		FeatureModel fm = new FeatureModel();
+	private static final Seed seed = new Seed();
+	protected static final Timeout timeout = new Timeout();
+	protected static final StringProperty outputPath = new StringProperty("output");
+	protected static final StringProperty modelsPath = new StringProperty("models");
 
-		Path p = MODELS_PATH.resolve(name).resolve("model.xml");
+	protected Path rootOutPath, pathToModels;
+
+	protected final IFeatureModel init(final String name) {
+		IFeatureModel fm = FMFactoryManager.getFactory().createFeatureModel();
+		Path p = pathToModels.resolve(name).resolve("model.xml");
 		if (Files.exists(p)) {
-			try {
-				new XmlFeatureModelReader(fm).readFromFile(p.toFile());
-			} catch (FileNotFoundException | UnsupportedModelException e) {
-				e.printStackTrace();
-			}
+			FileHandler.load(p, fm, new XmlFeatureModelFormat());
 		} else {
 			throw new RuntimeException(p.toString());
 		}
-
 		return fm;
 	}
-	
-	private final List<IProperty> propertyList = new LinkedList<>();
-	
-	protected void addProperty(IProperty property) {
+
+	public static void addProperty(IProperty property) {
 		propertyList.add(property);
 	}
-	
-	private void readProperties() {
-		final Path path = Paths.get(CONFIG_DIRECTORY + "config.properties");
-		logger.print("Reading config file. (" + path.toString()+ ") ... ");
+
+	private static void readProperties() {
+		final Path path = Paths.get(CONFIG_DIRECTORY + File.separator + "config.properties");
+		logger.print("Reading config file. (" + path.toString() + ") ... ");
 		final Properties properties = new Properties();
 		try {
 			properties.load(Files.newInputStream(path));
@@ -111,33 +132,93 @@ public abstract class ABenchmark {
 		}
 	}
 
-	protected abstract void createProperties();
-	
+	protected final <T> T run(ATestRunner<T> testRunner) {
+		final Thread thread = new Thread(testRunner);
+		thread.start();
+		try {
+			thread.join();
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+		return testRunner.getResult();
+	}
+
+	@SuppressWarnings("deprecation")
+	protected final <T> T run(ATestRunner<T> testRunner, long timeout) {
+		final Thread thread = new Thread(testRunner);
+		logger.getTimer().start();
+		thread.start();
+		try {
+			thread.join(timeout);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+		if (thread.isAlive()) {
+			thread.stop();
+		}
+		logger.getTimer().stop();
+		return testRunner.getResult();
+	}
+
 	public ABenchmark() {
-		addProperty(seed);
-		createProperties();
 		readProperties();
+		initPaths();
+		
+		final Path consoleOutputPath = rootOutPath.resolve("console.txt");
+		final PrintStream orgConsole = System.out;
+		try {
+			System.setOut(new PrintStream(new FileOutputStream(consoleOutputPath.toFile()) {
+				@Override
+				public void flush() throws IOException {
+					super.flush();
+					orgConsole.flush();
+				}
+
+				@Override
+				public void write(byte[] buf, int off, int len) throws IOException {
+					super.write(buf, off, len);
+					orgConsole.write(buf, off, len);
+				}
+
+				@Override
+				public void write(int b) throws IOException {
+					super.write(b);
+					orgConsole.write(b);
+				}
+
+				@Override
+				public void write(byte[] b) throws IOException {
+					super.write(b);
+					orgConsole.write(b);
+				}
+			}));
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
 
 		List<String> lines = null;
 		try {
-			lines = Files.readAllLines(Paths.get(CONFIG_DIRECTORY + "models.txt"), Charset.defaultCharset());
+			lines = Files.readAllLines(Paths.get(CONFIG_DIRECTORY + File.separator + "models.txt"), Charset.defaultCharset());
 		} catch (IOException e) {
 			logger.println("No feature models specified!");
-			FMCorePlugin.getDefault().logError(e);
+			Logger.logError(e);
 		}
 
 		if (lines != null) {
 			boolean pause = false;
 			modelNames = new ArrayList<>(lines.size());
 			for (String modelName : lines) {
-				modelName = modelName.trim();
-				if (!modelName.isEmpty()) {
-					if (modelName.startsWith(COMMENT)) {
-						if (modelName.equals(STOP_MARK)) {
-							pause = !pause;
+				// modelName = modelName.trim();
+				if (!modelName.trim().isEmpty()) {
+					if (!modelName.startsWith("\t")) {
+
+						if (modelName.startsWith(COMMENT)) {
+							if (modelName.equals(STOP_MARK)) {
+								pause = !pause;
+							}
+						} else if (!pause) {
+							modelNames.add(modelName.trim());
 						}
-					} else if (!pause) {
-						modelNames.add(modelName);
 					}
 				}
 			}
@@ -148,12 +229,45 @@ public abstract class ABenchmark {
 		randSeed = new Random(seed.getValue());
 	}
 
+	private void initPaths() {
+		rootOutPath = Paths.get(((outputPath.getValue().isEmpty()) ? "output" : outputPath.getValue()) + File.separator
+				+ (Long.MAX_VALUE - System.currentTimeMillis()));
+		try {
+			Files.createDirectories(rootOutPath);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		pathToModels = Paths.get((modelsPath.getValue().isEmpty()) ? MODELS_DIRECTORY : modelsPath.getValue());
+	}
+
 	protected final long getNextSeed() {
 		return randSeed.nextLong();
 	}
 
-	protected final FeatureModel initModel(int index) {
+	protected final IFeatureModel initModel(int index) {
 		return init(modelNames.get(index));
+	}
+
+	protected static final String getCurTime() {
+		return new SimpleDateFormat("MM/dd/yyyy-hh:mm:ss").format(new Timestamp(System.currentTimeMillis()));
+	}
+
+	protected static final void printErr(String message) {
+		System.err.println(getCurTime() + ": " + message);
+	}
+
+	protected static final void printOut(String message) {
+		System.out.println(getCurTime() + ": " + message);
+	}
+
+	protected static final void printOut(String message, int tabs) {
+		StringBuilder sb = new StringBuilder(getCurTime());
+		sb.append(": ");
+		for (int i = 0; i < tabs; i++) {
+			sb.append('\t');
+		}
+		sb.append(message);
+		System.out.println(sb.toString());
 	}
 
 }

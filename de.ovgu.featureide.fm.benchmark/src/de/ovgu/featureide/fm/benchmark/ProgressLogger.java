@@ -25,7 +25,7 @@ package de.ovgu.featureide.fm.benchmark;
  */
 public class ProgressLogger {
 
-	private static final boolean verbose = false;
+	public static boolean verbose = false;
 
 	private final ProgressTimer timer = new ProgressTimer();
 

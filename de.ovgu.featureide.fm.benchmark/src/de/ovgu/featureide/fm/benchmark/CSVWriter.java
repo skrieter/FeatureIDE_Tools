@@ -13,7 +13,7 @@ public class CSVWriter {
 
 	private final List<List<String>> values = new ArrayList<>();
 
-	private String separator = ";";
+	private String separator = ",";
 	private List<String> header = null;
 
 	private Path outputPath = Paths.get("");
@@ -41,7 +41,7 @@ public class CSVWriter {
 		}
 	}
 
-	public void setAutoSave(Path fileName) {
+	public void setFileName(Path fileName) {
 		p = outputPath.resolve(fileName);
 		try {
 			Files.deleteIfExists(p);
@@ -49,7 +49,18 @@ public class CSVWriter {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-		values.clear();
+		reset();
+	}
+	
+	public void setFileName(String fileName) {
+		p = outputPath.resolve(fileName);
+		try {
+			Files.deleteIfExists(p);
+			Files.createFile(p);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		reset();
 	}
 
 	@Override
@@ -125,12 +136,16 @@ public class CSVWriter {
 
 	public boolean saveToFile(Path p) {
 		try {
-			Files.write(p, toString().getBytes(), StandardOpenOption.APPEND);
+			Files.write(p, toString().getBytes(), StandardOpenOption.APPEND, StandardOpenOption.CREATE);
 			return true;
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
 		return false;
+	}
+
+	public void reset() {
+		values.clear();		
 	}
 
 }
