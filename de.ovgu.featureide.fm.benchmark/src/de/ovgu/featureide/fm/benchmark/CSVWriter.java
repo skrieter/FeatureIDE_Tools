@@ -13,7 +13,7 @@ public class CSVWriter {
 
 	private final List<List<String>> values = new ArrayList<>();
 
-	private String separator = ",";
+	private String separator = ";";
 	private List<String> header = null;
 
 	private Path outputPath = Paths.get("");
