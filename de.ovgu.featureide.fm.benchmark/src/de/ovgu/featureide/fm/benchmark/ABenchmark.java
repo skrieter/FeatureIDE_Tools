@@ -25,10 +25,16 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.net.URI;
 import java.nio.charset.Charset;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
+import java.nio.file.FileVisitResult;
+import java.nio.file.FileVisitor;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -52,6 +58,9 @@ import de.ovgu.featureide.fm.core.io.xml.XmlFeatureModelFormat;
  * @author Sebastian Krieter
  */
 public abstract class ABenchmark {
+
+	private static final String MODELS_ZIP_FILE = "models.zip";
+	private static final String MODEL_FILE = "model.xml";
 
 	private static final List<IProperty> propertyList = new LinkedList<>();
 
@@ -100,14 +109,81 @@ public abstract class ABenchmark {
 	protected Path rootOutPath, pathToModels;
 
 	protected final IFeatureModel init(final String name) {
-		IFeatureModel fm = FMFactoryManager.getFactory().createFeatureModel();
-		Path p = pathToModels.resolve(name).resolve("model.xml");
-		if (Files.exists(p)) {
-			FileHandler.load(p, fm, new XmlFeatureModelFormat());
+		IFeatureModel fm = null;
+
+		fm = lookUpFile(name, fm);
+		fm = lookupZip(name, fm);
+
+		if (fm == null) {
+			throw new RuntimeException("Model not found: " + name);
 		} else {
-			throw new RuntimeException(p.toString());
+			return fm;
 		}
+	}
+
+	protected IFeatureModel loadFile(final Path path) {
+		IFeatureModel fm = FMFactoryManager.getFactory().createFeatureModel();
+		FileHandler.load(path, fm, new XmlFeatureModelFormat());
 		return fm;
+	}
+
+	protected IFeatureModel lookUpFile(final String name, IFeatureModel fm) {
+		if (fm != null) {
+			return fm;
+		} else {
+			final Path path = pathToModels.resolve(name).resolve(MODEL_FILE);
+			return (Files.exists(path)) ? loadFile(path) : null;
+		}
+	}
+
+	protected IFeatureModel lookupZip(final String name, IFeatureModel fm) {
+		if (fm != null) {
+			return fm;
+		} else {
+			final LinkedList<Path> modelList = new LinkedList<>();
+			final String pathName = name + "/";
+			final URI uri = URI.create("jar:" + pathToModels.resolve(MODELS_ZIP_FILE).toUri().toString());
+			try (final FileSystem zipFs = FileSystems.newFileSystem(uri, Collections.<String, Object> emptyMap())) {
+				for (Path root : zipFs.getRootDirectories()) {
+					Files.walkFileTree(root, new FileVisitor<Path>() {
+						@Override
+						public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+							final Path fileName = file.getFileName();
+							if (fileName != null && MODEL_FILE.equals(fileName.toString())) {
+								modelList.add(file);
+								return FileVisitResult.TERMINATE;
+							}
+							return FileVisitResult.CONTINUE;
+						}
+
+						@Override
+						public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+							return FileVisitResult.TERMINATE;
+						}
+
+						@Override
+						public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs)
+								throws IOException {
+							final Path fileName = dir.getFileName();
+							if (fileName == null || pathName.equals(fileName.toString())) {
+								return FileVisitResult.CONTINUE;
+							} else {
+								return FileVisitResult.SKIP_SUBTREE;
+							}
+						}
+
+						@Override
+						public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
+							return FileVisitResult.CONTINUE;
+						}
+					});
+				}
+				return (modelList.isEmpty()) ? null : loadFile(modelList.getFirst());
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+			return null;
+		}
 	}
 
 	public static void addProperty(IProperty property) {
@@ -163,7 +239,7 @@ public abstract class ABenchmark {
 	public ABenchmark() {
 		readProperties();
 		initPaths();
-		
+
 		final Path consoleOutputPath = rootOutPath.resolve("console.txt");
 		final PrintStream orgConsole = System.out;
 		try {
