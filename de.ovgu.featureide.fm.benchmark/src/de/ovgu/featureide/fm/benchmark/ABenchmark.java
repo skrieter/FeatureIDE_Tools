@@ -186,13 +186,18 @@ public abstract class ABenchmark {
 		if (fm != null) {
 			return fm;
 		} else {
-			final URI uri = URI.create("jar:" + rootPath.resolve(MODELS_ZIP_FILE).toUri().toString());
-			try (final FileSystem zipFs = FileSystems.newFileSystem(uri, Collections.<String, Object>emptyMap())) {
-				for (Path root : zipFs.getRootDirectories()) {
-					fm = lookUpFolder(root, name, fm);
-					fm = lookUpFile(root, name, fm);
+			final Filter<Path> fileFilter = file -> Files.isReadable(file) && Files.isRegularFile(file) && file.getFileName().toString().matches(".*[.]zip\\Z");
+			try (DirectoryStream<Path> files = Files.newDirectoryStream(rootPath, fileFilter)) {
+				for (Path path : files) {
+					final URI uri = URI.create("jar:" + path.toUri().toString());
+					try (final FileSystem zipFs = FileSystems.newFileSystem(uri, Collections.<String, Object>emptyMap())) {
+						for (Path root : zipFs.getRootDirectories()) {
+							fm = lookUpFolder(root, name, fm);
+							fm = lookUpFile(root, name, fm);
+						}
+						return fm;
+					}
 				}
-				return fm;
 			} catch (IOException e) {
 				printErr(e.getMessage());
 			}
