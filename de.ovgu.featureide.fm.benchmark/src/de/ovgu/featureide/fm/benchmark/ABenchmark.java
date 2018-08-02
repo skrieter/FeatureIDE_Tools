@@ -24,21 +24,22 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.PrintStream;
 import java.net.URI;
 import java.nio.charset.Charset;
+import java.nio.file.DirectoryStream;
+import java.nio.file.DirectoryStream.Filter;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
-import java.nio.file.FileVisitResult;
-import java.nio.file.FileVisitor;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Properties;
@@ -50,9 +51,7 @@ import de.ovgu.featureide.fm.benchmark.properties.StringProperty;
 import de.ovgu.featureide.fm.benchmark.properties.Timeout;
 import de.ovgu.featureide.fm.core.Logger;
 import de.ovgu.featureide.fm.core.base.IFeatureModel;
-import de.ovgu.featureide.fm.core.base.impl.FMFactoryManager;
-import de.ovgu.featureide.fm.core.io.manager.FileHandler;
-import de.ovgu.featureide.fm.core.io.xml.XmlFeatureModelFormat;
+import de.ovgu.featureide.fm.core.io.manager.FeatureModelManager;
 
 /**
  * @author Sebastian Krieter
@@ -89,6 +88,39 @@ public abstract class ABenchmark {
 
 	}
 
+	protected static class ConsoleLogger extends FileOutputStream {
+
+		private final OutputStream orgConsole;
+
+		public ConsoleLogger(File file, OutputStream orgConsole) throws FileNotFoundException {
+			super(file);
+			this.orgConsole = orgConsole;
+		}
+
+		public void flush() throws IOException {
+			super.flush();
+			orgConsole.flush();
+		}
+
+		@Override
+		public void write(byte[] buf, int off, int len) throws IOException {
+			super.write(buf, off, len);
+			orgConsole.write(buf, off, len);
+		}
+
+		@Override
+		public void write(int b) throws IOException {
+			super.write(b);
+			orgConsole.write(b);
+		}
+
+		@Override
+		public void write(byte[] b) throws IOException {
+			super.write(b);
+			orgConsole.write(b);
+		}
+	}
+
 	private static final String MODELS_DIRECTORY = "models";
 	private static final String CONFIG_DIRECTORY = "config";
 
@@ -108,11 +140,12 @@ public abstract class ABenchmark {
 
 	protected Path rootOutPath, pathToModels;
 
-	protected final IFeatureModel init(final String name) {
+	public final IFeatureModel init(final String name) {
 		IFeatureModel fm = null;
 
-		fm = lookUpFile(name, fm);
-		fm = lookupZip(name, fm);
+		fm = lookUpFolder(pathToModels, name, fm);
+		fm = lookUpFile(pathToModels, name, fm);
+		fm = lookUpZip(pathToModels, name, fm);
 
 		if (fm == null) {
 			throw new RuntimeException("Model not found: " + name);
@@ -122,65 +155,46 @@ public abstract class ABenchmark {
 	}
 
 	protected IFeatureModel loadFile(final Path path) {
-		IFeatureModel fm = FMFactoryManager.getFactory().createFeatureModel();
-		FileHandler.load(path, fm, new XmlFeatureModelFormat());
-		return fm;
+		return FeatureModelManager.load(path);
 	}
 
-	protected IFeatureModel lookUpFile(final String name, IFeatureModel fm) {
+	protected IFeatureModel lookUpFolder(final Path rootPath, final String name, IFeatureModel fm) {
 		if (fm != null) {
 			return fm;
 		} else {
-			final Path path = pathToModels.resolve(name).resolve(MODEL_FILE);
+			final Path path = rootPath.resolve(name).resolve(MODEL_FILE);
 			return (Files.exists(path)) ? loadFile(path) : null;
 		}
 	}
 
-	protected IFeatureModel lookupZip(final String name, IFeatureModel fm) {
+	protected IFeatureModel lookUpFile(final Path rootPath, final String name, IFeatureModel fm) {
 		if (fm != null) {
 			return fm;
 		} else {
-			final LinkedList<Path> modelList = new LinkedList<>();
-			final String pathName = name + "/";
-			final URI uri = URI.create("jar:" + pathToModels.resolve(MODELS_ZIP_FILE).toUri().toString());
-			try (final FileSystem zipFs = FileSystems.newFileSystem(uri, Collections.<String, Object> emptyMap())) {
-				for (Path root : zipFs.getRootDirectories()) {
-					Files.walkFileTree(root, new FileVisitor<Path>() {
-						@Override
-						public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-							final Path fileName = file.getFileName();
-							if (fileName != null && MODEL_FILE.equals(fileName.toString())) {
-								modelList.add(file);
-								return FileVisitResult.TERMINATE;
-							}
-							return FileVisitResult.CONTINUE;
-						}
-
-						@Override
-						public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
-							return FileVisitResult.TERMINATE;
-						}
-
-						@Override
-						public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs)
-								throws IOException {
-							final Path fileName = dir.getFileName();
-							if (fileName == null || pathName.equals(fileName.toString())) {
-								return FileVisitResult.CONTINUE;
-							} else {
-								return FileVisitResult.SKIP_SUBTREE;
-							}
-						}
-
-						@Override
-						public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
-							return FileVisitResult.CONTINUE;
-						}
-					});
-				}
-				return (modelList.isEmpty()) ? null : loadFile(modelList.getFirst());
+			final Filter<Path> fileFilter = file -> Files.isReadable(file) && Files.isRegularFile(file) && file.getFileName().toString().matches("^" + name + "\\.\\w+$");
+			try (DirectoryStream<Path> files = Files.newDirectoryStream(rootPath, fileFilter)) {
+				final Iterator<Path> iterator = files.iterator();
+				return iterator.hasNext() ? loadFile(iterator.next()) : null;
 			} catch (IOException e) {
-				e.printStackTrace();
+				printErr(e.getMessage());
+			}
+			return null;
+		}
+	}
+
+	protected IFeatureModel lookUpZip(final Path rootPath, final String name, IFeatureModel fm) {
+		if (fm != null) {
+			return fm;
+		} else {
+			final URI uri = URI.create("jar:" + rootPath.resolve(MODELS_ZIP_FILE).toUri().toString());
+			try (final FileSystem zipFs = FileSystems.newFileSystem(uri, Collections.<String, Object>emptyMap())) {
+				for (Path root : zipFs.getRootDirectories()) {
+					fm = lookUpFolder(root, name, fm);
+					fm = lookUpFile(root, name, fm);
+				}
+				return fm;
+			} catch (IOException e) {
+				printErr(e.getMessage());
 			}
 			return null;
 		}
@@ -241,40 +255,20 @@ public abstract class ABenchmark {
 		initPaths();
 
 		final Path consoleOutputPath = rootOutPath.resolve("console.txt");
-		final PrintStream orgConsole = System.out;
+		final Path consoleErrorPath = rootOutPath.resolve("error_log.txt");
+		final PrintStream orgOutConsole = System.out;
+		final PrintStream orgErrConsole = System.err;
 		try {
-			System.setOut(new PrintStream(new FileOutputStream(consoleOutputPath.toFile()) {
-				@Override
-				public void flush() throws IOException {
-					super.flush();
-					orgConsole.flush();
-				}
-
-				@Override
-				public void write(byte[] buf, int off, int len) throws IOException {
-					super.write(buf, off, len);
-					orgConsole.write(buf, off, len);
-				}
-
-				@Override
-				public void write(int b) throws IOException {
-					super.write(b);
-					orgConsole.write(b);
-				}
-
-				@Override
-				public void write(byte[] b) throws IOException {
-					super.write(b);
-					orgConsole.write(b);
-				}
-			}));
+			System.setOut(new PrintStream(new ConsoleLogger(consoleOutputPath.toFile(), orgOutConsole)));
+			System.setErr(new PrintStream(new ConsoleLogger(consoleErrorPath.toFile(), orgErrConsole)));
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
 		}
 
 		List<String> lines = null;
 		try {
-			lines = Files.readAllLines(Paths.get(CONFIG_DIRECTORY + File.separator + "models.txt"), Charset.defaultCharset());
+			lines = Files.readAllLines(Paths.get(CONFIG_DIRECTORY + File.separator + "models.txt"),
+					Charset.defaultCharset());
 		} catch (IOException e) {
 			logger.println("No feature models specified!");
 			Logger.logError(e);
@@ -299,7 +293,7 @@ public abstract class ABenchmark {
 				}
 			}
 		} else {
-			modelNames = Collections.<String> emptyList();
+			modelNames = Collections.<String>emptyList();
 		}
 
 		randSeed = new Random(seed.getValue());
@@ -325,20 +319,20 @@ public abstract class ABenchmark {
 	}
 
 	protected static final String getCurTime() {
-		return new SimpleDateFormat("MM/dd/yyyy-hh:mm:ss").format(new Timestamp(System.currentTimeMillis()));
+		return new SimpleDateFormat("MM/dd/yyyy-HH:mm:ss").format(new Timestamp(System.currentTimeMillis()));
 	}
 
 	protected static final void printErr(String message) {
-		System.err.println(getCurTime() + ": " + message);
+		System.err.println(getCurTime() + " " + message);
 	}
 
 	protected static final void printOut(String message) {
-		System.out.println(getCurTime() + ": " + message);
+		System.out.println(getCurTime() + " " + message);
 	}
 
 	protected static final void printOut(String message, int tabs) {
 		StringBuilder sb = new StringBuilder(getCurTime());
-		sb.append(": ");
+		sb.append(" ");
 		for (int i = 0; i < tabs; i++) {
 			sb.append('\t');
 		}

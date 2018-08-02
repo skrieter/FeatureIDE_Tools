@@ -18,6 +18,7 @@ public class CSVWriter {
 
 	private Path outputPath = Paths.get("");
 	private Path p;
+	private boolean dummy = false;
 
 	public Path getOutputPath() {
 		return outputPath;
@@ -51,7 +52,7 @@ public class CSVWriter {
 		}
 		reset();
 	}
-	
+
 	public void setFileName(String fileName) {
 		p = outputPath.resolve(fileName);
 		try {
@@ -98,15 +99,21 @@ public class CSVWriter {
 	public void createNewLine() {
 		values.add(new ArrayList<String>());
 	}
-	
+
 	public void flush() {
-		if (p != null && !values.isEmpty()) {
-			try {
-				StringBuilder sb = new StringBuilder();
-				writer(sb, values.get(values.size() - 1));
-				Files.write(p, sb.toString().getBytes(), StandardOpenOption.APPEND);
-			} catch (IOException e) {
-				e.printStackTrace();
+		if (p != null) {
+			if (dummy) {
+				values.remove(values.size() - 1);
+			} else {
+				if (!values.isEmpty()) {
+					try {
+						StringBuilder sb = new StringBuilder();
+						writer(sb, values.get(values.size() - 1));
+						Files.write(p, sb.toString().getBytes(), StandardOpenOption.APPEND);
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
+				}
 			}
 		}
 	}
@@ -145,7 +152,15 @@ public class CSVWriter {
 	}
 
 	public void reset() {
-		values.clear();		
+		values.clear();
+	}
+
+	public boolean isDummy() {
+		return dummy;
+	}
+
+	public void setDummy(boolean dummy) {
+		this.dummy = dummy;
 	}
 
 }
