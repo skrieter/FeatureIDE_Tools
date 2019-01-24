@@ -162,8 +162,13 @@ public abstract class ABenchmark {
 		if (fm != null) {
 			return fm;
 		} else {
-			final Path path = rootPath.resolve(name).resolve(MODEL_FILE);
-			return (Files.exists(path)) ? loadFile(path) : null;
+			Path modelFolder = rootPath.resolve(name);
+			final Path path = modelFolder.resolve(MODEL_FILE);
+			if (Files.exists(path)) {
+				return loadFile(path);
+			} else {
+				return lookUpFile(modelFolder, "model", fm);
+			}
 		}
 	}
 
