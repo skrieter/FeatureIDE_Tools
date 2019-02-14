@@ -58,7 +58,6 @@ import de.ovgu.featureide.fm.core.io.manager.FeatureModelManager;
  */
 public abstract class ABenchmark {
 
-	private static final String MODELS_ZIP_FILE = "models.zip";
 	private static final String MODEL_FILE = "model.xml";
 
 	private static final List<IProperty> propertyList = new LinkedList<>();
@@ -121,8 +120,8 @@ public abstract class ABenchmark {
 		}
 	}
 
-	private static final String MODELS_DIRECTORY = "models";
-	private static final String CONFIG_DIRECTORY = "config";
+	private static final String DEFAULT_MODELS_DIRECTORY = "models";
+	private static final String DEFAULT_CONFIG_DIRECTORY = "config";
 
 	private static final String COMMENT = "#";
 	private static final String STOP_MARK = "###";
@@ -130,7 +129,6 @@ public abstract class ABenchmark {
 	protected final static ProgressLogger logger = new ProgressLogger();
 	protected final CSVWriter csvWriter = new CSVWriter();
 
-	protected final List<String> modelNames;
 	private final Random randSeed;
 
 	private static final Seed seed = new Seed();
@@ -139,6 +137,7 @@ public abstract class ABenchmark {
 	protected static final StringProperty modelsPath = new StringProperty("models");
 
 	protected Path rootOutPath, pathToModels;
+	protected List<String> modelNames;
 
 	public final IFeatureModel init(final String name) {
 		IFeatureModel fm = null;
@@ -176,7 +175,8 @@ public abstract class ABenchmark {
 		if (fm != null) {
 			return fm;
 		} else {
-			final Filter<Path> fileFilter = file -> Files.isReadable(file) && Files.isRegularFile(file) && file.getFileName().toString().matches("^" + name + "\\.\\w+$");
+			final Filter<Path> fileFilter = file -> Files.isReadable(file) && Files.isRegularFile(file)
+					&& file.getFileName().toString().matches("^" + name + "\\.\\w+$");
 			try (DirectoryStream<Path> files = Files.newDirectoryStream(rootPath, fileFilter)) {
 				final Iterator<Path> iterator = files.iterator();
 				return iterator.hasNext() ? loadFile(iterator.next()) : null;
@@ -191,11 +191,13 @@ public abstract class ABenchmark {
 		if (fm != null) {
 			return fm;
 		} else {
-			final Filter<Path> fileFilter = file -> Files.isReadable(file) && Files.isRegularFile(file) && file.getFileName().toString().matches(".*[.]zip\\Z");
+			final Filter<Path> fileFilter = file -> Files.isReadable(file) && Files.isRegularFile(file)
+					&& file.getFileName().toString().matches(".*[.]zip\\Z");
 			try (DirectoryStream<Path> files = Files.newDirectoryStream(rootPath, fileFilter)) {
 				for (Path path : files) {
 					final URI uri = URI.create("jar:" + path.toUri().toString());
-					try (final FileSystem zipFs = FileSystems.newFileSystem(uri, Collections.<String, Object>emptyMap())) {
+					try (final FileSystem zipFs = FileSystems.newFileSystem(uri,
+							Collections.<String, Object>emptyMap())) {
 						for (Path root : zipFs.getRootDirectories()) {
 							fm = lookUpFolder(root, name, fm);
 							fm = lookUpFile(root, name, fm);
@@ -212,24 +214,6 @@ public abstract class ABenchmark {
 
 	public static void addProperty(IProperty property) {
 		propertyList.add(property);
-	}
-
-	private static void readProperties() {
-		final Path path = Paths.get(CONFIG_DIRECTORY + File.separator + "config.properties");
-		logger.print("Reading config file. (" + path.toString() + ") ... ");
-		final Properties properties = new Properties();
-		try {
-			properties.load(Files.newInputStream(path));
-			logger.println("Success!");
-		} catch (IOException e) {
-			logger.println("Fail! -> " + e.getMessage());
-		}
-		for (IProperty prop : propertyList) {
-			logger.print("\t" + prop.getKey() + " = ");
-			boolean success = prop.setValue(properties.getProperty(prop.getKey()));
-			logger.print(prop.getValue().toString());
-			logger.println(success ? "" : " (default value!)");
-		}
 	}
 
 	protected final <T> T run(ATestRunner<T> testRunner) {
@@ -261,8 +245,56 @@ public abstract class ABenchmark {
 	}
 
 	public ABenchmark() {
-		readProperties();
-		initPaths();
+		this(null);
+	}
+
+	public ABenchmark(String configPath) {
+		initConfigPath(configPath);
+		initOutputPath();
+		initModelPath();
+		randSeed = new Random(seed.getValue());
+	}
+
+	private void initConfigPath(String configPath) {
+		try {
+			if (configPath != null) {
+				readConfigFile(Paths.get(configPath).resolve("config.properties"));
+				return;
+			}
+		} catch (Exception e) {
+		}
+		try {
+			readConfigFile(Paths.get(DEFAULT_CONFIG_DIRECTORY).resolve("config.properties"));
+		} catch (Exception e1) {
+		}
+	}
+
+	private static void readConfigFile(final Path path) throws Exception {
+		logger.print("Reading config file. (" + path.toString() + ") ... ");
+		final Properties properties = new Properties();
+		try {
+			properties.load(Files.newInputStream(path));
+			logger.println("Success!");
+		} catch (IOException e) {
+			logger.println("Fail! -> " + e.getMessage());
+			throw e;
+		}
+		for (IProperty prop : propertyList) {
+			logger.print("\t" + prop.getKey() + " = ");
+			boolean success = prop.setValue(properties.getProperty(prop.getKey()));
+			logger.print(prop.getValue().toString());
+			logger.println(success ? "" : " (default value!)");
+		}
+	}
+
+	private void initOutputPath() {
+		rootOutPath = Paths.get(((outputPath.getValue().isEmpty()) ? "output" : outputPath.getValue()) + File.separator
+				+ (Long.MAX_VALUE - System.currentTimeMillis()));
+		try {
+			Files.createDirectories(rootOutPath);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 
 		final Path consoleOutputPath = rootOutPath.resolve("console.txt");
 		final Path consoleErrorPath = rootOutPath.resolve("error_log.txt");
@@ -274,10 +306,14 @@ public abstract class ABenchmark {
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
 		}
+	}
+
+	private void initModelPath() {
+		pathToModels = Paths.get((modelsPath.getValue().isEmpty()) ? DEFAULT_MODELS_DIRECTORY : modelsPath.getValue());
 
 		List<String> lines = null;
 		try {
-			lines = Files.readAllLines(Paths.get(CONFIG_DIRECTORY + File.separator + "models.txt"),
+			lines = Files.readAllLines(Paths.get(DEFAULT_CONFIG_DIRECTORY + File.separator + "models.txt"),
 					Charset.defaultCharset());
 		} catch (IOException e) {
 			logger.println("No feature models specified!");
@@ -306,18 +342,6 @@ public abstract class ABenchmark {
 			modelNames = Collections.<String>emptyList();
 		}
 
-		randSeed = new Random(seed.getValue());
-	}
-
-	private void initPaths() {
-		rootOutPath = Paths.get(((outputPath.getValue().isEmpty()) ? "output" : outputPath.getValue()) + File.separator
-				+ (Long.MAX_VALUE - System.currentTimeMillis()));
-		try {
-			Files.createDirectories(rootOutPath);
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-		pathToModels = Paths.get((modelsPath.getValue().isEmpty()) ? MODELS_DIRECTORY : modelsPath.getValue());
 	}
 
 	protected final long getNextSeed() {
