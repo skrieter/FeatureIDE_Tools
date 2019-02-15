@@ -1,15 +1,36 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <project name="FIDE Tools" default="jar" basedir=".">
 
+	<!-- Copy from build_jar_template.properties and edit accordingly -->
+	<property file = "build_jar.properties"/>
+
+	<property name="lib" value="lib"/>
+	<property name="extern.lib" value="lib"/>
+
 	<target name="jar">
 		<subant target="">
-			<fileset dir="../fide/plugins/de.ovgu.featureide.fm.core" includes="build_jar.xml" />
+			<fileset dir="${fm.core.path}/library" includes="build.xml" />
 		</subant>
-		<copy file="../fide/plugins/de.ovgu.featureide.fm.core\de.ovgu.featureide.lib.fm.jar" todir="lib" />
+		<copy file="${fm.core.path}/library/jar/de.ovgu.featureide.lib.fm.jar" todir="${lib}" />
+		<copy todir="${lib}">
+			<fileset dir="${fm.core.path}/${extern.lib}" />
+		</copy>
 
 		<mkdir dir="build/classes" />
-		<javac srcdir="src" destdir="build/classes" includeantruntime="false" source="1.7" 
-			classpath="lib/de.ovgu.featureide.lib.fm.jar">
+		<javac
+			srcdir="src"
+			destdir="build/classes"
+			includeantruntime="false"
+			debug="on"
+			source="1.8" 
+	      	target="1.8"
+			fork="yes"
+			executable="${bin.javac.path}">
+			<classpath>
+				<fileset dir="${lib}">
+					<include name="**/*.jar" />
+				</fileset>
+			</classpath>
 		</javac>
 
 		<mkdir dir="build/jar" />

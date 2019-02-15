@@ -5,3 +5,5 @@
 /build/
 /lib/
 /models/
+/build_jar.properties
+/de.ovgu.featureide.fm.benchmark.jar
