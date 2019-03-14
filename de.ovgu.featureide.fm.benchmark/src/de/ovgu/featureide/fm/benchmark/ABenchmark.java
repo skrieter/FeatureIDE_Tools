@@ -51,6 +51,7 @@ import de.ovgu.featureide.fm.benchmark.properties.StringProperty;
 import de.ovgu.featureide.fm.benchmark.properties.Timeout;
 import de.ovgu.featureide.fm.core.Logger;
 import de.ovgu.featureide.fm.core.base.IFeatureModel;
+import de.ovgu.featureide.fm.core.io.ProblemList;
 import de.ovgu.featureide.fm.core.io.manager.FeatureModelManager;
 
 /**
@@ -154,7 +155,9 @@ public abstract class ABenchmark {
 	}
 
 	protected IFeatureModel loadFile(final Path path) {
-		return FeatureModelManager.load(path);
+		final ProblemList problems = new ProblemList();
+		final IFeatureModel fm = FeatureModelManager.load(path, problems);
+		return problems.containsError() ? null : fm;
 	}
 
 	protected IFeatureModel lookUpFolder(final Path rootPath, final String name, IFeatureModel fm) {
@@ -162,11 +165,15 @@ public abstract class ABenchmark {
 			return fm;
 		} else {
 			Path modelFolder = rootPath.resolve(name);
-			final Path path = modelFolder.resolve(MODEL_FILE);
-			if (Files.exists(path)) {
-				return loadFile(path);
+			if (Files.exists(modelFolder) && Files.isDirectory(modelFolder)) {
+				final Path path = modelFolder.resolve(MODEL_FILE);
+				if (Files.exists(path)) {
+					return loadFile(path);
+				} else {
+					return lookUpFile(modelFolder, "model", fm);
+				}
 			} else {
-				return lookUpFile(modelFolder, "model", fm);
+				return null;
 			}
 		}
 	}
@@ -179,7 +186,14 @@ public abstract class ABenchmark {
 					&& file.getFileName().toString().matches("^" + name + "\\.\\w+$");
 			try (DirectoryStream<Path> files = Files.newDirectoryStream(rootPath, fileFilter)) {
 				final Iterator<Path> iterator = files.iterator();
-				return iterator.hasNext() ? loadFile(iterator.next()) : null;
+				while (iterator.hasNext()) {
+					Path next = iterator.next();
+					IFeatureModel loadedFm = loadFile(next);
+					if (loadedFm != null) {
+						return loadedFm;
+					}
+				}
+				return null;
 			} catch (IOException e) {
 				printErr(e.getMessage());
 			}
