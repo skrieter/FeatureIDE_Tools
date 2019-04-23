@@ -17,8 +17,10 @@ public class CSVWriter {
 	private List<String> header = null;
 
 	private Path outputPath = Paths.get("");
-	private Path p;
+	private Path path;
 	private boolean dummy = false;
+	private boolean keepLines = true;
+	private int nextLine = 0;
 
 	public Path getOutputPath() {
 		return outputPath;
@@ -43,21 +45,18 @@ public class CSVWriter {
 	}
 
 	public void setFileName(Path fileName) {
-		p = outputPath.resolve(fileName);
-		try {
-			Files.deleteIfExists(p);
-			Files.createFile(p);
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-		reset();
+		setPath(outputPath.resolve(fileName));
 	}
 
 	public void setFileName(String fileName) {
-		p = outputPath.resolve(fileName);
+		setPath(outputPath.resolve(fileName));
+	}
+
+	private void setPath(Path path) {
+		this.path = path;
 		try {
-			Files.deleteIfExists(p);
-			Files.createFile(p);
+			Files.deleteIfExists(path);
+			Files.createFile(path);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -67,11 +66,8 @@ public class CSVWriter {
 	@Override
 	public String toString() {
 		StringBuilder sb = new StringBuilder();
-		if (header != null) {
-			writer(sb, header);
-		}
-		for (List<String> lines : values) {
-			writer(sb, lines);
+		for (List<String> line : values) {
+			writer(sb, line);
 		}
 		return sb.toString();
 	}
@@ -90,36 +86,51 @@ public class CSVWriter {
 
 	public void setHeader(List<String> header) {
 		this.header = header;
+		if (values.isEmpty()) {
+			values.add(header);
+		} else {
+			values.set(0, header);
+		}
 	}
 
 	public void addLine(List<String> line) {
-		values.add(line);
+		if (!dummy) {
+			values.add(line);
+		}
 	}
 
 	public void createNewLine() {
-		values.add(new ArrayList<String>());
+		if (!dummy) {
+			values.add(new ArrayList<>());
+		}
 	}
 
 	public void flush() {
-		if (p != null) {
-			if (dummy) {
-				values.remove(values.size() - 1);
-			} else {
-				if (!values.isEmpty()) {
-					try {
-						StringBuilder sb = new StringBuilder();
-						writer(sb, values.get(values.size() - 1));
-						Files.write(p, sb.toString().getBytes(), StandardOpenOption.APPEND);
-					} catch (IOException e) {
-						e.printStackTrace();
+		if (path != null) {
+			if (!dummy) {
+				final StringBuilder sb = new StringBuilder();
+				for (int i = nextLine; i < values.size(); i++) {
+					writer(sb, values.get(i));
+				}
+				try {
+					Files.write(path, sb.toString().getBytes(), StandardOpenOption.APPEND);
+					if (keepLines) {
+						nextLine = values.size();
+					} else {
+						values.subList(1, values.size()).clear();
+						nextLine = 1;
 					}
+				} catch (IOException e) {
+					e.printStackTrace();
 				}
 			}
 		}
 	}
 
 	public void addValue(Object o) {
-		values.get(values.size() - 1).add(o.toString());
+		if (!dummy) {
+			values.get(values.size() - 1).add(o.toString());
+		}
 	}
 
 	public List<List<String>> getValues() {
@@ -152,7 +163,10 @@ public class CSVWriter {
 	}
 
 	public void reset() {
-		values.clear();
+		if (!values.isEmpty()) {
+			values.subList(1, values.size()).clear();
+		}
+		nextLine = 0;
 	}
 
 	public boolean isDummy() {
@@ -161,6 +175,14 @@ public class CSVWriter {
 
 	public void setDummy(boolean dummy) {
 		this.dummy = dummy;
+	}
+
+	public boolean isKeepLines() {
+		return keepLines;
+	}
+
+	public void setKeepLines(boolean keepLines) {
+		this.keepLines = keepLines;
 	}
 
 }
