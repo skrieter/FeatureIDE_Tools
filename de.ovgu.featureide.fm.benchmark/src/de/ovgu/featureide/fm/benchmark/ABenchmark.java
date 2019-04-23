@@ -51,8 +51,8 @@ import de.ovgu.featureide.fm.benchmark.properties.StringProperty;
 import de.ovgu.featureide.fm.benchmark.properties.Timeout;
 import de.ovgu.featureide.fm.core.Logger;
 import de.ovgu.featureide.fm.core.base.IFeatureModel;
-import de.ovgu.featureide.fm.core.io.ProblemList;
 import de.ovgu.featureide.fm.core.io.manager.FeatureModelManager;
+import de.ovgu.featureide.fm.core.io.manager.FileHandler;
 
 /**
  * @author Sebastian Krieter
@@ -155,9 +155,8 @@ public abstract class ABenchmark {
 	}
 
 	protected IFeatureModel loadFile(final Path path) {
-		final ProblemList problems = new ProblemList();
-		final IFeatureModel fm = FeatureModelManager.load(path, problems);
-		return problems.containsError() ? null : fm;
+		final FileHandler<IFeatureModel> fh = FeatureModelManager.getFileHandler(path);
+		return fh.getLastProblems().containsError() ? null : fh.getObject();
 	}
 
 	protected IFeatureModel lookUpFolder(final Path rootPath, final String name, IFeatureModel fm) {
