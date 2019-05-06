@@ -3,12 +3,11 @@ package de.ovgu.featureide.fm.benchmark.properties;
 public class IntProperty extends AProperty<Integer> {
 
 	public IntProperty(String name) {
-		super(name);
+		super(name, 0);
 	}
 
-	@Override
-	protected Integer getDefaultValue() {
-		return 0;
+	public IntProperty(String name, int defaultValue) {
+		super(name, defaultValue);
 	}
 
 	@Override

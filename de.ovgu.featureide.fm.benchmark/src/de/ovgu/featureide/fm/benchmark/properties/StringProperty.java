@@ -3,12 +3,11 @@ package de.ovgu.featureide.fm.benchmark.properties;
 public class StringProperty extends AProperty<String> {
 
 	public StringProperty(String name) {
-		super(name);
+		super(name, "");
 	}
 
-	@Override
-	protected String getDefaultValue() {
-		return "";
+	public StringProperty(String name, String defaultValue) {
+		super(name, defaultValue);
 	}
 
 	@Override

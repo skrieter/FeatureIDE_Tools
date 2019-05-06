@@ -5,10 +5,16 @@ import de.ovgu.featureide.fm.benchmark.ABenchmark;
 public abstract class AProperty<T> implements IProperty {
 
 	private final String key;
+	private final T defaultValue;
 	private T value;
 
 	public AProperty(String key) {
+		this(key, null);
+	}
+
+	public AProperty(String key, T defaultValue) {
 		this.key = key;
+		this.defaultValue = defaultValue;
 		ABenchmark.addProperty(this);
 	}
 
@@ -20,7 +26,9 @@ public abstract class AProperty<T> implements IProperty {
 		return key;
 	}
 
-	protected abstract T getDefaultValue();
+	protected T getDefaultValue() {
+		return defaultValue;
+	}
 
 	protected abstract T cast(String valueString) throws Exception;
 

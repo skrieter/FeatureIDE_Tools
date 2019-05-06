@@ -6,9 +6,4 @@ public class Timeout extends LongProperty {
 		super("timeout");
 	}
 
-	@Override
-	protected Long getDefaultValue() {
-		return 0L;
-	}
-
 }

@@ -3,12 +3,11 @@ package de.ovgu.featureide.fm.benchmark.properties;
 public class BoolProperty extends AProperty<Boolean> {
 
 	public BoolProperty(String name) {
-		super(name);
+		super(name, Boolean.FALSE);
 	}
 
-	@Override
-	protected Boolean getDefaultValue() {
-		return Boolean.FALSE;
+	public BoolProperty(String name, Boolean defaultValue) {
+		super(name, defaultValue);
 	}
 
 	@Override
