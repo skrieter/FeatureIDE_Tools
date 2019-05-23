@@ -21,11 +21,7 @@
 package de.ovgu.featureide.fm.benchmark;
 
 import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
-import java.io.PrintStream;
 import java.net.URI;
 import java.nio.charset.Charset;
 import java.nio.file.DirectoryStream;
@@ -35,8 +31,6 @@ import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.sql.Timestamp;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
@@ -46,10 +40,10 @@ import java.util.Properties;
 import java.util.Random;
 
 import de.ovgu.featureide.fm.benchmark.properties.IProperty;
+import de.ovgu.featureide.fm.benchmark.properties.IntProperty;
 import de.ovgu.featureide.fm.benchmark.properties.Seed;
 import de.ovgu.featureide.fm.benchmark.properties.StringProperty;
 import de.ovgu.featureide.fm.benchmark.properties.Timeout;
-import de.ovgu.featureide.fm.core.Logger;
 import de.ovgu.featureide.fm.core.base.IFeatureModel;
 import de.ovgu.featureide.fm.core.io.manager.FeatureModelManager;
 import de.ovgu.featureide.fm.core.io.manager.FileHandler;
@@ -88,54 +82,20 @@ public abstract class ABenchmark {
 
 	}
 
-	protected static class ConsoleLogger extends FileOutputStream {
-
-		private final OutputStream orgConsole;
-
-		public ConsoleLogger(File file, OutputStream orgConsole) throws FileNotFoundException {
-			super(file);
-			this.orgConsole = orgConsole;
-		}
-
-		public void flush() throws IOException {
-			super.flush();
-			orgConsole.flush();
-		}
-
-		@Override
-		public void write(byte[] buf, int off, int len) throws IOException {
-			super.write(buf, off, len);
-			orgConsole.write(buf, off, len);
-		}
-
-		@Override
-		public void write(int b) throws IOException {
-			super.write(b);
-			orgConsole.write(b);
-		}
-
-		@Override
-		public void write(byte[] b) throws IOException {
-			super.write(b);
-			orgConsole.write(b);
-		}
-	}
-
 	private static final String DEFAULT_MODELS_DIRECTORY = "models";
 	private static final String DEFAULT_CONFIG_DIRECTORY = "config";
 
 	private static final String COMMENT = "#";
 	private static final String STOP_MARK = "###";
 
-	protected final static ProgressLogger logger = new ProgressLogger();
-	protected final CSVWriter csvWriter = new CSVWriter();
-
-	private final Random randSeed;
-
-	private static final Seed seed = new Seed();
 	protected static final Timeout timeout = new Timeout();
 	protected static final StringProperty outputPath = new StringProperty("output");
 	protected static final StringProperty modelsPath = new StringProperty("models");
+	protected static final Seed seed = new Seed();
+	protected static final IntProperty verboseLevel = new IntProperty("verboseLevel");
+
+	protected final CSVWriter csvWriter = new CSVWriter();
+	private final Random randSeed;
 
 	protected Path rootOutPath, pathToModels;
 	protected List<String> modelNames;
@@ -215,7 +175,9 @@ public abstract class ABenchmark {
 							fm = lookUpFolder(root, name, fm);
 							fm = lookUpFile(root, name, fm);
 						}
-						return fm;
+						if (fm != null) {
+							return fm;
+						}
 					}
 				}
 			} catch (IOException e) {
@@ -243,7 +205,7 @@ public abstract class ABenchmark {
 	@SuppressWarnings("deprecation")
 	protected final <T> T run(ATestRunner<T> testRunner, long timeout) {
 		final Thread thread = new Thread(testRunner);
-		logger.getTimer().start();
+		Logger.getInstance().printOut("Start");
 		thread.start();
 		try {
 			thread.join(timeout);
@@ -253,7 +215,7 @@ public abstract class ABenchmark {
 		if (thread.isAlive()) {
 			thread.stop();
 		}
-		logger.getTimer().stop();
+		Logger.getInstance().printOut("Finished");
 		return testRunner.getResult();
 	}
 
@@ -268,11 +230,14 @@ public abstract class ABenchmark {
 		randSeed = new Random(seed.getValue());
 	}
 
+	public void dispose() {
+		Logger.getInstance().uninstall();
+	}
+
 	private void initConfigPath(String configPath) {
 		try {
 			if (configPath != null) {
 				readConfigFile(Paths.get(configPath).resolve("config.properties"));
-				return;
 			}
 		} catch (Exception e) {
 		}
@@ -282,21 +247,28 @@ public abstract class ABenchmark {
 		}
 	}
 
-	private static void readConfigFile(final Path path) throws Exception {
-		logger.print("Reading config file. (" + path.toString() + ") ... ");
+	private static Properties readConfigFile(final Path path) throws Exception {
+		Logger.getInstance().printOut("Reading config file. (" + path.toString() + ") ... ");
 		final Properties properties = new Properties();
 		try {
 			properties.load(Files.newInputStream(path));
-			logger.println("Success!");
+			Logger.getInstance().printOut("Success!");
+			printConfigFile(properties);
+			return properties;
 		} catch (IOException e) {
-			logger.println("Fail! -> " + e.getMessage());
+			Logger.getInstance().printOut("Fail! -> " + e.getMessage());
 			throw e;
 		}
+	}
+
+	private static void printConfigFile(final Properties properties) {
 		for (IProperty prop : propertyList) {
-			logger.print("\t" + prop.getKey() + " = ");
+			StringBuilder sb = new StringBuilder();
+			sb.append("\t").append(prop.getKey()).append(" = ");
 			boolean success = prop.setValue(properties.getProperty(prop.getKey()));
-			logger.print(prop.getValue().toString());
-			logger.println(success ? "" : " (default value!)");
+			sb.append(prop.getValue().toString());
+			sb.append(success ? "" : " (default value!)");
+			Logger.getInstance().printOut(sb.toString());
 		}
 	}
 
@@ -305,18 +277,8 @@ public abstract class ABenchmark {
 				+ (Long.MAX_VALUE - System.currentTimeMillis()));
 		try {
 			Files.createDirectories(rootOutPath);
+			Logger.getInstance().install(rootOutPath, verboseLevel.getValue());
 		} catch (IOException e) {
-			e.printStackTrace();
-		}
-
-		final Path consoleOutputPath = rootOutPath.resolve("console.txt");
-		final Path consoleErrorPath = rootOutPath.resolve("error_log.txt");
-		final PrintStream orgOutConsole = System.out;
-		final PrintStream orgErrConsole = System.err;
-		try {
-			System.setOut(new PrintStream(new ConsoleLogger(consoleOutputPath.toFile(), orgOutConsole)));
-			System.setErr(new PrintStream(new ConsoleLogger(consoleErrorPath.toFile(), orgErrConsole)));
-		} catch (FileNotFoundException e) {
 			e.printStackTrace();
 		}
 	}
@@ -329,8 +291,7 @@ public abstract class ABenchmark {
 			lines = Files.readAllLines(Paths.get(DEFAULT_CONFIG_DIRECTORY + File.separator + "models.txt"),
 					Charset.defaultCharset());
 		} catch (IOException e) {
-			logger.println("No feature models specified!");
-			Logger.logError(e);
+			Logger.getInstance().printErr("No feature models specified!");
 		}
 
 		if (lines != null) {
@@ -365,26 +326,16 @@ public abstract class ABenchmark {
 		return init(modelNames.get(index));
 	}
 
-	protected static final String getCurTime() {
-		return new SimpleDateFormat("MM/dd/yyyy-HH:mm:ss").format(new Timestamp(System.currentTimeMillis()));
-	}
-
 	protected static final void printErr(String message) {
-		System.err.println(getCurTime() + " " + message);
+		Logger.getInstance().printErr(message);
 	}
 
 	protected static final void printOut(String message) {
-		System.out.println(getCurTime() + " " + message);
+		Logger.getInstance().printOut(message);
 	}
 
 	protected static final void printOut(String message, int tabs) {
-		StringBuilder sb = new StringBuilder(getCurTime());
-		sb.append(" ");
-		for (int i = 0; i < tabs; i++) {
-			sb.append('\t');
-		}
-		sb.append(message);
-		System.out.println(sb.toString());
+		Logger.getInstance().printOut(message, tabs);
 	}
 
 }
