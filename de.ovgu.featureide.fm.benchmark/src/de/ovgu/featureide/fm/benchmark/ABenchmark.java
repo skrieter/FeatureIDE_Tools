@@ -238,12 +238,10 @@ public abstract class ABenchmark {
 		try {
 			if (configPath != null) {
 				readConfigFile(Paths.get(configPath).resolve("config.properties"));
+			} else {
+				readConfigFile(Paths.get(DEFAULT_CONFIG_DIRECTORY).resolve("config.properties"));
 			}
 		} catch (Exception e) {
-		}
-		try {
-			readConfigFile(Paths.get(DEFAULT_CONFIG_DIRECTORY).resolve("config.properties"));
-		} catch (Exception e1) {
 		}
 	}
 
