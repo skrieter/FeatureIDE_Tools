@@ -47,11 +47,17 @@ import de.ovgu.featureide.fm.benchmark.properties.Timeout;
 import de.ovgu.featureide.fm.core.base.IFeatureModel;
 import de.ovgu.featureide.fm.core.io.manager.FeatureModelManager;
 import de.ovgu.featureide.fm.core.io.manager.FileHandler;
+import de.ovgu.featureide.fm.core.init.FMCoreLibrary;
+import de.ovgu.featureide.fm.core.init.LibraryManager;
 
 /**
  * @author Sebastian Krieter
  */
 public abstract class ABenchmark {
+	
+	static {
+		LibraryManager.registerLibrary(FMCoreLibrary.getInstance());
+	}
 
 	private static final String MODEL_FILE = "model.xml";
 
