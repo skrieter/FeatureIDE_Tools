@@ -113,11 +113,7 @@ public abstract class ABenchmark {
 		fm = lookUpFile(pathToModels, name, fm);
 		fm = lookUpZip(pathToModels, name, fm);
 
-		if (fm == null) {
-			throw new RuntimeException("Model not found: " + name);
-		} else {
-			return fm;
-		}
+		return fm;
 	}
 
 	protected IFeatureModel loadFile(final Path path) {
