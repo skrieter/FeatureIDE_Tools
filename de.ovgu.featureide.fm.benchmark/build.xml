@@ -5,21 +5,27 @@
 	<property file = "build_jar.properties"/>
 
 	<property name="lib" value="lib"/>
-	<property name="extern.lib" value="lib"/>
+	<property name="build.dir" value="build"/>
+	<property name="build.lib" value="${build.dir}/jar/lib"/>
+	<property name="extern.lib" value="library/jar/lib"/>
+	<property name="extern.jar" value="library/jar/de.ovgu.featureide.lib.fm.core.jar"/>
 
 	<target name="jar">
 		<subant target="">
 			<fileset dir="${fm.core.path}/library" includes="build.xml" />
 		</subant>
-		<copy file="${fm.core.path}/library/jar/de.ovgu.featureide.lib.fm.jar" todir="${lib}" />
-		<copy todir="${lib}">
+		<copy file="${fm.core.path}/${extern.jar}" todir="${build.lib}" />
+		<copy todir="${build.lib}">
+			<fileset dir="${lib}" />
+		</copy>
+		<copy todir="${build.lib}">
 			<fileset dir="${fm.core.path}/${extern.lib}" />
 		</copy>
 
-		<mkdir dir="build/classes" />
+		<mkdir dir="${build.dir}/classes" />
 		<javac
 			srcdir="src"
-			destdir="build/classes"
+			destdir="${build.dir}/classes"
 			includeantruntime="false"
 			debug="on"
 			source="1.8" 
@@ -27,14 +33,14 @@
 			fork="yes"
 			executable="${bin.javac.path}">
 			<classpath>
-				<fileset dir="${lib}">
+				<fileset dir="${build.lib}">
 					<include name="**/*.jar" />
 				</fileset>
 			</classpath>
 		</javac>
 
-		<mkdir dir="build/jar" />
-		<jar destfile="build/jar/de.ovgu.featureide.lib.benchmark.jar" basedir="build/classes" compress="true">
+		<mkdir dir="${build.dir}/jar" />
+		<jar destfile="${build.dir}/jar/de.ovgu.featureide.lib.benchmark.jar" basedir="build/classes" compress="true">
 		</jar>
 	</target>
 
