@@ -103,7 +103,7 @@ public abstract class ABenchmark {
 	protected final CSVWriter csvWriter = new CSVWriter();
 	private final Random randSeed;
 
-	protected Path rootOutPath, pathToModels;
+	protected Path rootOutPath, pathToModels, configPath;
 	protected List<String> modelNames;
 
 	public final IFeatureModel init(final String name) {
@@ -237,12 +237,9 @@ public abstract class ABenchmark {
 	}
 
 	private void initConfigPath(String configPath) {
+		this.configPath = Paths.get(configPath != null ? configPath : DEFAULT_CONFIG_DIRECTORY);
 		try {
-			if (configPath != null) {
-				readConfigFile(Paths.get(configPath).resolve("config.properties"));
-			} else {
-				readConfigFile(Paths.get(DEFAULT_CONFIG_DIRECTORY).resolve("config.properties"));
-			}
+			readConfigFile(this.configPath.resolve("config.properties"));
 		} catch (Exception e) {
 		}
 	}
@@ -286,11 +283,13 @@ public abstract class ABenchmark {
 	private void initModelPath() {
 		pathToModels = Paths.get((modelsPath.getValue().isEmpty()) ? DEFAULT_MODELS_DIRECTORY : modelsPath.getValue());
 
+		final Path modelList = configPath.resolve("models.txt");
+
 		List<String> lines = null;
 		try {
-			lines = Files.readAllLines(Paths.get(DEFAULT_CONFIG_DIRECTORY + File.separator + "models.txt"),
-					Charset.defaultCharset());
+			lines = Files.readAllLines(modelList, Charset.defaultCharset());
 		} catch (IOException e) {
+			e.printStackTrace();
 			Logger.getInstance().printErr("No feature models specified!");
 		}
 
