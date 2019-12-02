@@ -20,321 +20,283 @@
  */
 package de.ovgu.featureide.fm.benchmark;
 
-import java.io.File;
 import java.io.IOException;
-import java.net.URI;
-import java.nio.charset.Charset;
-import java.nio.file.DirectoryStream;
-import java.nio.file.DirectoryStream.Filter;
-import java.nio.file.FileSystem;
-import java.nio.file.FileSystems;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.LinkedList;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.util.Arrays;
 import java.util.List;
-import java.util.Properties;
-import java.util.Random;
 
+import de.ovgu.featureide.fm.benchmark.process.Algorithm;
+import de.ovgu.featureide.fm.benchmark.process.ProcessRunner;
+import de.ovgu.featureide.fm.benchmark.process.ProcessRunner.Result;
 import de.ovgu.featureide.fm.benchmark.properties.IProperty;
-import de.ovgu.featureide.fm.benchmark.properties.IntProperty;
-import de.ovgu.featureide.fm.benchmark.properties.Seed;
-import de.ovgu.featureide.fm.benchmark.properties.StringProperty;
-import de.ovgu.featureide.fm.benchmark.properties.Timeout;
+import de.ovgu.featureide.fm.benchmark.util.CSVWriter;
+import de.ovgu.featureide.fm.benchmark.util.FeatureModelReader;
+import de.ovgu.featureide.fm.benchmark.util.Logger;
 import de.ovgu.featureide.fm.core.base.IFeatureModel;
-import de.ovgu.featureide.fm.core.io.manager.FeatureModelManager;
-import de.ovgu.featureide.fm.core.io.manager.FileHandler;
-import de.ovgu.featureide.fm.core.init.FMCoreLibrary;
-import de.ovgu.featureide.fm.core.init.LibraryManager;
 
 /**
  * @author Sebastian Krieter
  */
-public abstract class ABenchmark {
-	
-	static {
-		LibraryManager.registerLibrary(FMCoreLibrary.getInstance());
+public abstract class ABenchmark<A extends Algorithm> {
+
+	protected final BenchmarkConfig config;
+
+	private final CSVWriter dataCSVWriter = new CSVWriter();
+	private final CSVWriter modelCSVWriter = new CSVWriter();
+	private final CSVWriter algorithmCSVWriter = new CSVWriter();
+
+	public ABenchmark(String configPath) throws Exception {
+		config = new BenchmarkConfig(configPath);
+		init();
 	}
 
-	private static final String MODEL_FILE = "model.xml";
-
-	private static final List<IProperty> propertyList = new LinkedList<>();
-
-	protected static abstract class ATestRunner<T> implements Runnable {
-
-		private T result;
-
-		@Override
-		public void run() {
-			result = null;
-			try {
-				result = execute();
-			} catch (Throwable e) {
-				if (!(e instanceof ThreadDeath)) {
-					e.printStackTrace();
-					System.exit(-1);
-				}
-			}
-		}
-
-		protected abstract T execute();
-
-		public T getResult() {
-			return result;
-		}
-
-	}
-
-	private static final String DEFAULT_MODELS_DIRECTORY = "models";
-	private static final String DEFAULT_CONFIG_DIRECTORY = "config";
-
-	private static final String COMMENT = "#";
-	private static final String STOP_MARK = "###";
-
-	protected static final Timeout timeout = new Timeout();
-	protected static final StringProperty outputPath = new StringProperty("output");
-	protected static final StringProperty modelsPath = new StringProperty("models");
-	protected static final Seed seed = new Seed();
-	protected static final IntProperty verboseLevel = new IntProperty("verboseLevel");
-
-	protected final CSVWriter csvWriter = new CSVWriter();
-	private final Random randSeed;
-
-	protected Path rootOutPath, pathToModels, configPath;
-	protected List<String> modelNames;
-
-	public final IFeatureModel init(final String name) {
-		IFeatureModel fm = null;
-
-		fm = lookUpFolder(pathToModels, name, fm);
-		fm = lookUpFile(pathToModels, name, fm);
-		fm = lookUpZip(pathToModels, name, fm);
-
-		return fm;
-	}
-
-	protected IFeatureModel loadFile(final Path path) {
-		final FileHandler<IFeatureModel> fh = FeatureModelManager.getFileHandler(path);
-		return fh.getLastProblems().containsError() ? null : fh.getObject();
-	}
-
-	protected IFeatureModel lookUpFolder(final Path rootPath, final String name, IFeatureModel fm) {
-		if (fm != null) {
-			return fm;
-		} else {
-			Path modelFolder = rootPath.resolve(name);
-			if (Files.exists(modelFolder) && Files.isDirectory(modelFolder)) {
-				final Path path = modelFolder.resolve(MODEL_FILE);
-				if (Files.exists(path)) {
-					return loadFile(path);
-				} else {
-					return lookUpFile(modelFolder, "model", fm);
-				}
-			} else {
-				return null;
-			}
-		}
-	}
-
-	protected IFeatureModel lookUpFile(final Path rootPath, final String name, IFeatureModel fm) {
-		if (fm != null) {
-			return fm;
-		} else {
-			final Filter<Path> fileFilter = file -> Files.isReadable(file) && Files.isRegularFile(file)
-					&& file.getFileName().toString().matches("^" + name + "\\.\\w+$");
-			try (DirectoryStream<Path> files = Files.newDirectoryStream(rootPath, fileFilter)) {
-				final Iterator<Path> iterator = files.iterator();
-				while (iterator.hasNext()) {
-					Path next = iterator.next();
-					IFeatureModel loadedFm = loadFile(next);
-					if (loadedFm != null) {
-						return loadedFm;
-					}
-				}
-				return null;
-			} catch (IOException e) {
-				printErr(e.getMessage());
-			}
-			return null;
-		}
-	}
-
-	protected IFeatureModel lookUpZip(final Path rootPath, final String name, IFeatureModel fm) {
-		if (fm != null) {
-			return fm;
-		} else {
-			final Filter<Path> fileFilter = file -> Files.isReadable(file) && Files.isRegularFile(file)
-					&& file.getFileName().toString().matches(".*[.]zip\\Z");
-			try (DirectoryStream<Path> files = Files.newDirectoryStream(rootPath, fileFilter)) {
-				for (Path path : files) {
-					final URI uri = URI.create("jar:" + path.toUri().toString());
-					try (final FileSystem zipFs = FileSystems.newFileSystem(uri,
-							Collections.<String, Object>emptyMap())) {
-						for (Path root : zipFs.getRootDirectories()) {
-							fm = lookUpFolder(root, name, fm);
-							fm = lookUpFile(root, name, fm);
-						}
-						if (fm != null) {
-							return fm;
-						}
-					}
-				}
-			} catch (IOException e) {
-				printErr(e.getMessage());
-			}
-			return null;
-		}
-	}
-
-	public static void addProperty(IProperty property) {
-		propertyList.add(property);
-	}
-
-	protected final <T> T run(ATestRunner<T> testRunner) {
-		final Thread thread = new Thread(testRunner);
-		thread.start();
+	public void init() throws Exception {
 		try {
-			thread.join();
-		} catch (InterruptedException e) {
-			e.printStackTrace();
+			Files.createDirectories(config.outputPath);
+			Files.createDirectories(config.csvPath);
+			Files.createDirectories(config.tempPath);
+			Logger.getInstance().install(config.outputPath, config.verbosity.getValue());
+		} catch (IOException e) {
+			Logger.getInstance().logError("Could not create output directory.");
+			Logger.getInstance().logError(e);
+			throw e;
 		}
-		return testRunner.getResult();
-	}
 
-	@SuppressWarnings("deprecation")
-	protected final <T> T run(ATestRunner<T> testRunner, long timeout) {
-		final Thread thread = new Thread(testRunner);
-		Logger.getInstance().printOut("Start");
-		thread.start();
-		try {
-			thread.join(timeout);
-		} catch (InterruptedException e) {
-			e.printStackTrace();
-		}
-		if (thread.isAlive()) {
-			thread.stop();
-		}
-		Logger.getInstance().printOut("Finished");
-		return testRunner.getResult();
-	}
-
-	public ABenchmark() {
-		this(null);
-	}
-
-	public ABenchmark(String configPath) {
-		initConfigPath(configPath);
-		initOutputPath();
-		initModelPath();
-		randSeed = new Random(seed.getValue());
+		initCSVWriter(dataCSVWriter, "data.csv", Arrays.asList("ModelID", "AlgorithmID", "SystemIteration",
+				"AlgorithmIteration", "InTime", "NoError", "Time"));
+		initCSVWriter(modelCSVWriter, "models.csv", Arrays.asList("ModelID", "Name"));
+		initCSVWriter(algorithmCSVWriter, "algorithms.csv", Arrays.asList("AlgorithmID", "Name", "Settings"));
+		initCSVWriters();
+		dataCSVWriter.flush();
+		modelCSVWriter.flush();
+		algorithmCSVWriter.flush();
 	}
 
 	public void dispose() {
 		Logger.getInstance().uninstall();
-	}
-
-	private void initConfigPath(String configPath) {
-		this.configPath = Paths.get(configPath != null ? configPath : DEFAULT_CONFIG_DIRECTORY);
-		try {
-			readConfigFile(this.configPath.resolve("config.properties"));
-		} catch (Exception e) {
+		if (!config.debug.getValue()) {
+			deleteTempFolder();
 		}
 	}
 
-	private static Properties readConfigFile(final Path path) throws Exception {
-		Logger.getInstance().printOut("Reading config file. (" + path.toString() + ") ... ");
-		final Properties properties = new Properties();
+	private void deleteTempFolder() {
 		try {
-			properties.load(Files.newInputStream(path));
-			Logger.getInstance().printOut("Success!");
-			printConfigFile(properties);
-			return properties;
-		} catch (IOException e) {
-			Logger.getInstance().printOut("Fail! -> " + e.getMessage());
-			throw e;
-		}
-	}
+			Files.walkFileTree(config.tempPath, new SimpleFileVisitor<Path>() {
+				@Override
+				public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+					Files.delete(file);
+					return FileVisitResult.CONTINUE;
+				}
 
-	private static void printConfigFile(final Properties properties) {
-		for (IProperty prop : propertyList) {
-			StringBuilder sb = new StringBuilder();
-			sb.append("\t").append(prop.getKey()).append(" = ");
-			boolean success = prop.setValue(properties.getProperty(prop.getKey()));
-			sb.append(prop.getValue().toString());
-			sb.append(success ? "" : " (default value!)");
-			Logger.getInstance().printOut(sb.toString());
-		}
-	}
-
-	private void initOutputPath() {
-		rootOutPath = Paths.get(((outputPath.getValue().isEmpty()) ? "output" : outputPath.getValue()) + File.separator
-				+ (Long.MAX_VALUE - System.currentTimeMillis()));
-		try {
-			Files.createDirectories(rootOutPath);
-			Logger.getInstance().install(rootOutPath, verboseLevel.getValue());
+				@Override
+				public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+					Files.deleteIfExists(dir);
+					return FileVisitResult.CONTINUE;
+				}
+			});
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
 	}
 
-	private void initModelPath() {
-		pathToModels = Paths.get((modelsPath.getValue().isEmpty()) ? DEFAULT_MODELS_DIRECTORY : modelsPath.getValue());
+	public final IFeatureModel init(final String name) {
+		FeatureModelReader featureModelReader = new FeatureModelReader();
+		return featureModelReader.read(name);
+	}
 
-		final Path modelList = configPath.resolve("models.txt");
-
-		List<String> lines = null;
+	public final void run() {
+		printConfigFile();
 		try {
-			lines = Files.readAllLines(modelList, Charset.defaultCharset());
+			System.in.read();
 		} catch (IOException e) {
 			e.printStackTrace();
-			Logger.getInstance().printErr("No feature models specified!");
 		}
 
-		if (lines != null) {
-			boolean pause = false;
-			modelNames = new ArrayList<>(lines.size());
-			for (String modelName : lines) {
-				// modelName = modelName.trim();
-				if (!modelName.trim().isEmpty()) {
-					if (!modelName.startsWith("\t")) {
+		int startSystemIndex = 0;
 
-						if (modelName.startsWith(COMMENT)) {
-							if (modelName.equals(STOP_MARK)) {
-								pause = !pause;
-							}
-						} else if (!pause) {
-							modelNames.add(modelName.trim());
-						}
+		Path progressFile;
+		if (config.enableBreaks.getValue()) {
+			try {
+				progressFile = config.configPath.resolve(".progress");
+				if (Files.exists(progressFile)) {
+					List<String> lines = Files.readAllLines(progressFile);
+					if (!lines.isEmpty()) {
+						startSystemIndex = Integer.parseInt(lines.get(0).trim());
 					}
 				}
+			} catch (Exception e) {
+				progressFile = null;
 			}
 		} else {
-			modelNames = Collections.<String>emptyList();
+			progressFile = null;
 		}
 
+		Logger.getInstance().logInfo("Start");
+
+		final ProcessRunner processRunner = new ProcessRunner();
+		processRunner.setTimeout(config.timeout.getValue());
+
+		final List<String> systemNames = config.systemNames.subList(startSystemIndex, config.systemNames.size());
+		int systemIndex = startSystemIndex;
+
+		systemLoop: for (String systemName : systemNames) {
+			if (progressFile != null) {
+				try {
+					Files.write(progressFile, Integer.toString(startSystemIndex).getBytes());
+				} catch (IOException e) {
+					Logger.getInstance().logError(e);
+				}
+			}
+			systemIndex++;
+			logSystem(systemName, systemIndex);
+			final List<A> algorithms;
+			try {
+				algorithms = prepareAlgorithms(systemIndex);
+			} catch (Exception e) {
+				continue systemLoop;
+			}
+			for (int systemIteration = 1; systemIteration <= config.systemIterations.getValue(); systemIteration++) {
+				try {
+					prepareModel(systemName, systemIndex, systemIteration);
+				} catch (Exception e) {
+					continue systemLoop;
+				}
+				int algorithmIndex = 0;
+				algorithmLoop: for (A algorithm : algorithms) {
+					for (int algorithmIteration = 1; algorithmIteration <= config.algorithmIterations
+							.getValue(); algorithmIteration++) {
+						dataCSVWriter.createNewLine();
+						dataCSVWriter.addValue(systemIndex);
+						dataCSVWriter.addValue(algorithmIndex);
+						dataCSVWriter.addValue(systemIteration);
+						dataCSVWriter.addValue(algorithmIteration);
+						logRun(algorithms, systemIteration, algorithmIndex, algorithm, algorithmIteration);
+						Result result = processRunner.run(algorithm, dataCSVWriter);
+						dataCSVWriter.addValue(result.isTerminatedInTime());
+						dataCSVWriter.addValue(result.isNoError());
+						dataCSVWriter.addValue(result.getTime());
+						try {
+							algorithm.parseResults();
+							writeData(systemName, algorithm, systemIteration, algorithmIteration, dataCSVWriter);
+						} catch (Exception e) {
+							dataCSVWriter.resetLine();
+							continue algorithmLoop;
+						}
+						dataCSVWriter.flush();
+					}
+					algorithmIndex++;
+				}
+			}
+		}
+
+		if (progressFile != null) {
+			try {
+				Files.deleteIfExists(progressFile);
+			} catch (IOException e) {
+				Logger.getInstance().logError(e);
+			}
+		}
+
+		Logger.getInstance().logInfo("Finished");
 	}
 
-	protected final long getNextSeed() {
-		return randSeed.nextLong();
+	private void logSystem(String systemName, int systemIndex) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("Processing System: ");
+		sb.append(systemName);
+		sb.append(" (");
+		sb.append(systemIndex);
+		sb.append("/");
+		sb.append(config.systemNames.size());
+		sb.append(")");
+		Logger.getInstance().logInfo(sb.toString(), 1, false);
 	}
 
-	protected final IFeatureModel initModel(int index) {
-		return init(modelNames.get(index));
+	private void logRun(List<A> algorithms, int systemIteration, int algorithmIndex, A algorithm,
+			int algorithmIteration) {
+		StringBuilder sb = new StringBuilder();
+		sb.append(systemIteration);
+		sb.append("/");
+		sb.append(config.systemIterations.getValue());
+		sb.append(" | ");
+		sb.append(algorithm.getFullName());
+		sb.append(" (");
+		sb.append(algorithmIndex + 1);
+		sb.append("/");
+		sb.append(algorithms.size());
+		sb.append(") | ");
+		sb.append(algorithmIteration);
+		sb.append("/");
+		sb.append(config.algorithmIterations.getValue());
+		Logger.getInstance().logInfo(sb.toString(), 1, false);
 	}
 
-	protected static final void printErr(String message) {
-		Logger.getInstance().printErr(message);
+	protected abstract void prepareModel(String systemName, int id, int systemIteration) throws Exception;
+
+	protected abstract List<A> prepareAlgorithms(int systemIndex) throws Exception;
+
+	protected void initCSVWriters() {
+	};
+
+	protected void writeData(String systemName, A algorithm, int systemIteration, int algorithmIteration,
+			CSVWriter dataCSVWriter) {
 	}
 
-	protected static final void printOut(String message) {
-		Logger.getInstance().printOut(message);
+	protected CSVWriter createCSVWriter(String fileName, List<String> csvHeader) {
+		CSVWriter csvWriter = new CSVWriter();
+		initCSVWriter(csvWriter, fileName, csvHeader);
+		csvWriter.flush();
+		return csvWriter;
 	}
 
-	protected static final void printOut(String message, int tabs) {
-		Logger.getInstance().printOut(message, tabs);
+	protected final void extendDataCSVWriter(List<String> csvHeader) {
+		extendCSVWriter(dataCSVWriter, csvHeader);
+	}
+
+	protected final void extendModelCSVWriter(List<String> csvHeader) {
+		extendCSVWriter(modelCSVWriter, csvHeader);
+	}
+
+	protected final void extendAlgorithmCSVWriter(List<String> csvHeader) {
+		extendCSVWriter(algorithmCSVWriter, csvHeader);
+	}
+
+	public CSVWriter getDataCSVWriter() {
+		return dataCSVWriter;
+	}
+
+	public CSVWriter getModelCSVWriter() {
+		return modelCSVWriter;
+	}
+
+	public CSVWriter getAlgorithmCSVWriter() {
+		return algorithmCSVWriter;
+	}
+
+	private void initCSVWriter(CSVWriter csvWriter, String fileName, List<String> csvHeader) {
+		csvWriter.setOutputPath(config.csvPath);
+		csvWriter.setFileName(fileName);
+		csvWriter.setKeepLines(false);
+		csvWriter.setHeader(csvHeader);
+	}
+
+	private void extendCSVWriter(CSVWriter csvWriter, List<String> csvHeader) {
+		for (String headerValue : csvHeader) {
+			csvWriter.addHeaderValue(headerValue);
+		}
+	}
+
+	private void printConfigFile() {
+		for (IProperty prop : BenchmarkConfig.propertyList) {
+			StringBuilder sb = new StringBuilder();
+			sb.append("\t").append(prop.getKey()).append(" = ");
+			sb.append(prop.getValue().toString());
+			Logger.getInstance().logInfo(sb.toString());
+		}
 	}
 
 }

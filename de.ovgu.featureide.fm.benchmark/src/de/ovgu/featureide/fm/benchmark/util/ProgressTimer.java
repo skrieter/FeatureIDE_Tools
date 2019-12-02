@@ -18,7 +18,7 @@
  *
  * See http://featureide.cs.ovgu.de/ for further information.
  */
-package de.ovgu.featureide.fm.benchmark;
+package de.ovgu.featureide.fm.benchmark.util;
 
 /**
  * @author Sebastian Krieter
@@ -33,15 +33,17 @@ public class ProgressTimer {
 	private long curTime = 0;
 
 	private long lastTime = -1;
-	
+
 	private static long getTime() {
 		return System.nanoTime();
 	}
 
 	public void start() {
-		startTime = getTime();
-		curTime = startTime;
-		running = true;
+		if (!running) {
+			startTime = getTime();
+			curTime = startTime;
+			running = true;
+		}
 	}
 
 	public long stop() {
@@ -65,11 +67,11 @@ public class ProgressTimer {
 
 		return lastTime;
 	}
-	
+
 	private void printTime() {
 		if (verbose) {
-			final double timeDiff = Math.floor(lastTime / 1000000.0) / 1000.0;
-			System.out.println(" -> " + timeDiff + "s");
+			final double timeDiff = (lastTime / 1_0000_00L) / 1_000.0;
+			Logger.getInstance().logInfo("Time: " + timeDiff + "s", true);
 		}
 	}
 

@@ -18,7 +18,7 @@
  *
  * See http://featureide.cs.ovgu.de/ for further information.
  */
-package de.ovgu.featureide.fm.benchmark;
+package de.ovgu.featureide.fm.benchmark.util;
 
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -26,6 +26,8 @@ import java.io.PrintStream;
 import java.nio.file.Path;
 import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
+
+import de.ovgu.featureide.fm.benchmark.streams.MultiStream;
 
 /**
  * @author Sebastian Krieter
@@ -40,7 +42,7 @@ public class Logger {
 		outStream = orgOut;
 		errStream = orgErr;
 	}
-	
+
 	public static final Logger getInstance() {
 		return INSTANCE;
 	}
@@ -55,12 +57,14 @@ public class Logger {
 
 	public void install(Path outputPath, int verboseLevel) throws FileNotFoundException {
 		this.verboseLevel = verboseLevel;
-		
+
 		FileOutputStream outFileStream = new FileOutputStream(outputPath.resolve("console_log.txt").toFile());
 		FileOutputStream errFileStream = new FileOutputStream(outputPath.resolve("error_log.txt").toFile());
-		FileOutputStream outReducedFileStream = new FileOutputStream(outputPath.resolve("console_log_reduced.txt").toFile());
-		FileOutputStream errReducedFileStream = new FileOutputStream(outputPath.resolve("error_log_reduced.txt").toFile());
-		
+		FileOutputStream outReducedFileStream = new FileOutputStream(
+				outputPath.resolve("console_log_reduced.txt").toFile());
+		FileOutputStream errReducedFileStream = new FileOutputStream(
+				outputPath.resolve("error_log_reduced.txt").toFile());
+
 		outStream = new PrintStream(new MultiStream(orgOut, outFileStream, outReducedFileStream));
 		errStream = new PrintStream(new MultiStream(orgErr, errFileStream, errReducedFileStream));
 
@@ -79,7 +83,7 @@ public class Logger {
 		outStream = orgOut;
 		errStream = orgErr;
 	}
-	
+
 	public int isVerbose() {
 		return verboseLevel;
 	}
@@ -88,20 +92,37 @@ public class Logger {
 		return new SimpleDateFormat("MM/dd/yyyy-HH:mm:ss").format(new Timestamp(System.currentTimeMillis()));
 	}
 
-	public final void printErr(String message) {
+	public final void logError(String message) {
 		println(errStream, message, false);
 	}
 
-	public final void printOut(String message) {
-		println(outStream, message, false);
+	public final void logError(Throwable error) {
+		println(errStream, error, false);
 	}
 
-	public final void printErr(String message, boolean onlyVerbose) {
+	public final void logError(String message, boolean onlyVerbose) {
 		println(errStream, message, onlyVerbose);
 	}
 
-	public final void printOut(String message, boolean onlyVerbose) {
-		println(outStream, message, onlyVerbose);
+	public final void logInfo(String message) {
+		println(outStream, message, false);
+	}
+
+	public final void logInfo(String message, boolean onlyVerbose) {
+		logInfo(message, 0, onlyVerbose);
+	}
+
+	public final void logInfo(String message, int tabs, boolean onlyVerbose) {
+		if (tabs > 0) {
+			final StringBuilder sb = new StringBuilder();
+			for (int i = 0; i < tabs; i++) {
+				sb.append('\t');
+			}
+			sb.append(message);
+			println(outStream, sb.toString(), onlyVerbose);
+		} else {
+			println(outStream, message, onlyVerbose);
+		}
 	}
 
 	private void println(PrintStream stream, String message, boolean onlyVerbose) {
@@ -110,14 +131,22 @@ public class Logger {
 		}
 	}
 
-	public final void printOut(String message, int tabs) {
+	private void println(PrintStream stream, Throwable error, boolean onlyVerbose) {
+		if (verboseLevel > 0 || !onlyVerbose) {
+			stream.print(getCurTime() + ":");
+			error.printStackTrace(stream);
+			stream.println(getCurTime());
+		}
+	}
+
+	public final void logInfo(String message, int tabs) {
 		final StringBuilder sb = new StringBuilder(getCurTime());
 		sb.append(" ");
 		for (int i = 0; i < tabs; i++) {
 			sb.append('\t');
 		}
 		sb.append(message);
-		printOut(sb.toString());
+		logInfo(sb.toString());
 	}
 
 }

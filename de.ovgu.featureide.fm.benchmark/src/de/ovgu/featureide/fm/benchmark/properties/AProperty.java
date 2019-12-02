@@ -1,6 +1,6 @@
 package de.ovgu.featureide.fm.benchmark.properties;
 
-import de.ovgu.featureide.fm.benchmark.ABenchmark;
+import de.ovgu.featureide.fm.benchmark.BenchmarkConfig;
 
 public abstract class AProperty<T> implements IProperty {
 
@@ -15,7 +15,7 @@ public abstract class AProperty<T> implements IProperty {
 	public AProperty(String key, T defaultValue) {
 		this.key = key;
 		this.defaultValue = defaultValue;
-		ABenchmark.addProperty(this);
+		BenchmarkConfig.addProperty(this);
 	}
 
 	public T getValue() {

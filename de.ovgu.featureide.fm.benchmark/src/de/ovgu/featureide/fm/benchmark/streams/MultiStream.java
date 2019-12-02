@@ -1,4 +1,4 @@
-package de.ovgu.featureide.fm.benchmark;
+package de.ovgu.featureide.fm.benchmark.streams;
 
 import java.io.IOException;
 import java.io.OutputStream;

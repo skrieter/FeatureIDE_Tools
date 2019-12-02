@@ -1,4 +1,4 @@
-package de.ovgu.featureide.fm.benchmark;
+package de.ovgu.featureide.fm.benchmark.util;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -85,12 +85,16 @@ public class CSVWriter {
 	}
 
 	public void setHeader(List<String> header) {
-		this.header = header;
+		this.header = new ArrayList<>(header);
 		if (values.isEmpty()) {
-			values.add(header);
+			values.add(this.header);
 		} else {
-			values.set(0, header);
+			values.set(0, this.header);
 		}
+	}
+
+	public void addHeaderValue(String headerValue) {
+		header.add(headerValue);
 	}
 
 	public void addLine(List<String> line) {
@@ -167,6 +171,12 @@ public class CSVWriter {
 			values.subList(1, values.size()).clear();
 		}
 		nextLine = 0;
+	}
+
+	public void resetLine() {
+		if (!values.isEmpty()) {
+			values.remove(values.size() - 1);
+		}
 	}
 
 	public boolean isDummy() {
