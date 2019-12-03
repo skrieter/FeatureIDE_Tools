@@ -78,7 +78,7 @@ public abstract class ABenchmark<A extends Algorithm> {
 
 	public void dispose() {
 		Logger.getInstance().uninstall();
-		if (!config.debug.getValue()) {
+		if (config.debug.getValue() == 0) {
 			deleteTempFolder();
 		}
 	}
@@ -119,7 +119,7 @@ public abstract class ABenchmark<A extends Algorithm> {
 		int startSystemIndex = 0;
 
 		Path progressFile;
-		if (config.enableBreaks.getValue()) {
+		if (config.enableBreaks.getValue() > 0) {
 			try {
 				progressFile = config.configPath.resolve(".progress");
 				if (Files.exists(progressFile)) {

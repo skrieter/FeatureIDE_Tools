@@ -32,7 +32,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Properties;
 
-import de.ovgu.featureide.fm.benchmark.properties.BoolProperty;
 import de.ovgu.featureide.fm.benchmark.properties.IProperty;
 import de.ovgu.featureide.fm.benchmark.properties.IntProperty;
 import de.ovgu.featureide.fm.benchmark.properties.LongProperty;
@@ -47,6 +46,7 @@ import de.ovgu.featureide.fm.benchmark.util.Logger;
  */
 public class BenchmarkConfig {
 
+	private static final String DEFAULT_RESOURCE_DIRECTORY = "resources";
 	private static final String DEFAULT_MODELS_DIRECTORY = "models";
 	private static final String DEFAULT_CONFIG_DIRECTORY = "config";
 
@@ -57,9 +57,10 @@ public class BenchmarkConfig {
 
 	protected final StringProperty outputPathProperty = new StringProperty("output");
 	protected final StringProperty modelsPathProperty = new StringProperty("models");
+	protected final StringProperty resourcesPathProperty = new StringProperty("resources");
 
-	protected final BoolProperty debug = new BoolProperty("debug");
-	protected final BoolProperty enableBreaks = new BoolProperty("enableBreaks");
+	protected final IntProperty debug = new IntProperty("debug");
+	protected final IntProperty enableBreaks = new IntProperty("enableBreaks");
 	protected final IntProperty verbosity = new IntProperty("verbosity");
 	protected final LongProperty timeout = new LongProperty("timeout", Long.MAX_VALUE);
 	public final Seed randomSeed = new Seed();
@@ -73,6 +74,7 @@ public class BenchmarkConfig {
 	public Path configPath;
 	public Path outputPath;
 	public Path modelPath;
+	public Path resourcePath;
 	public Path csvPath;
 	public Path tempPath;
 	protected List<String> systemNames;
@@ -111,13 +113,15 @@ public class BenchmarkConfig {
 	}
 
 	private void initModelPath() {
-		modelPath = Paths.get(
+		resourcePath = Paths.get((resourcesPathProperty.getValue().isEmpty()) ? DEFAULT_RESOURCE_DIRECTORY
+				: resourcesPathProperty.getValue());
+
+		modelPath = resourcePath.resolve(
 				(modelsPathProperty.getValue().isEmpty()) ? DEFAULT_MODELS_DIRECTORY : modelsPathProperty.getValue());
 
 		List<String> lines = null;
 		try {
-			lines = Files.readAllLines(Paths.get(DEFAULT_CONFIG_DIRECTORY + File.separator + "models.txt"),
-					Charset.defaultCharset());
+			lines = Files.readAllLines(configPath.resolve("models.txt"), Charset.defaultCharset());
 		} catch (IOException e) {
 			Logger.getInstance().logError("No feature models specified!");
 		}
