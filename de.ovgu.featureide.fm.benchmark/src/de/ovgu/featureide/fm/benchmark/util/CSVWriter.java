@@ -19,7 +19,7 @@ public class CSVWriter {
 	private Path outputPath = Paths.get("");
 	private Path path;
 	private boolean dummy = false;
-	private boolean keepLines = true;
+	private boolean keepLines = false;
 	private int nextLine = 0;
 
 	public Path getOutputPath() {
