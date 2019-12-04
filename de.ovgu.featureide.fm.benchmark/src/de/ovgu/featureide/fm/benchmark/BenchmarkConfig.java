@@ -121,9 +121,10 @@ public class BenchmarkConfig {
 
 		List<String> lines = null;
 		try {
-			lines = Files.readAllLines(configPath.resolve("models.txt"), Charset.defaultCharset());
+			lines = Files.readAllLines(configPath.getParent().resolve("models.txt"), Charset.defaultCharset());
 		} catch (IOException e) {
 			Logger.getInstance().logError("No feature models specified!");
+			Logger.getInstance().logError(e);
 		}
 
 		if (lines != null) {

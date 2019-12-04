@@ -52,17 +52,17 @@ public class FeatureModelReader {
 	public final IFeatureModel read(final String name) {
 		IFeatureModel fm = null;
 
-		fm = readFromFolder(pathToModels, name, fm);
+		fm = readFromFolder(pathToModels, name);
 		if (fm != null) {
 			return fm;
 		}
 
-		fm = readFromFile(pathToModels, name, fm);
+		fm = readFromFile(pathToModels, name);
 		if (fm != null) {
 			return fm;
 		}
 
-		fm = readFromZip(pathToModels, name, fm);
+		fm = readFromZip(pathToModels, name);
 
 		return fm;
 	}
@@ -77,30 +77,37 @@ public class FeatureModelReader {
 
 	public IFeatureModel loadFile(final Path path) {
 		final FileHandler<IFeatureModel> fh = FeatureModelManager.getFileHandler(path);
-		return fh.getLastProblems().containsError() ? null : fh.getObject();
+		if (fh.getLastProblems().containsError()) {
+			Logger.getInstance().logInfo(fh.getLastProblems().getErrors().get(0).getMessage(), 2, true);
+			return null;
+		} else {
+			return fh.getObject();
+		}
 	}
 
-	public IFeatureModel readFromFolder(final Path rootPath, final String name, IFeatureModel fm) {
+	public IFeatureModel readFromFolder(final Path rootPath, final String name) {
 		Path modelFolder = rootPath.resolve(name);
+		Logger.getInstance().logInfo("Trying to load from folder " + modelFolder, 1, true);
 		if (Files.exists(modelFolder) && Files.isDirectory(modelFolder)) {
 			final Path path = modelFolder.resolve(modelFileName);
 			if (Files.exists(path)) {
 				return loadFile(path);
 			} else {
-				return readFromFile(modelFolder, "model", fm);
+				return readFromFile(modelFolder, "model");
 			}
 		} else {
 			return null;
 		}
 	}
 
-	public IFeatureModel readFromFile(final Path rootPath, final String name, IFeatureModel fm) {
+	public IFeatureModel readFromFile(final Path rootPath, final String name) {
 		final Filter<Path> fileFilter = file -> Files.isReadable(file) && Files.isRegularFile(file)
 				&& file.getFileName().toString().matches("^" + name + "\\.\\w+$");
 		try (DirectoryStream<Path> files = Files.newDirectoryStream(rootPath, fileFilter)) {
 			final Iterator<Path> iterator = files.iterator();
 			while (iterator.hasNext()) {
 				Path next = iterator.next();
+				Logger.getInstance().logInfo("Trying to load from file " + next, 1, true);
 				IFeatureModel loadedFm = loadFile(next);
 				if (loadedFm != null) {
 					return loadedFm;
@@ -113,20 +120,26 @@ public class FeatureModelReader {
 		return null;
 	}
 
-	protected IFeatureModel readFromZip(final Path rootPath, final String name, IFeatureModel fm) {
+	protected IFeatureModel readFromZip(final Path rootPath, final String name) {
 		final Filter<Path> fileFilter = file -> Files.isReadable(file) && Files.isRegularFile(file)
 				&& file.getFileName().toString().matches(".*[.]zip\\Z");
 		try (DirectoryStream<Path> files = Files.newDirectoryStream(rootPath, fileFilter)) {
 			for (Path path : files) {
+				Logger.getInstance().logInfo("Trying to load from zip file " + path, 1, true);
 				final URI uri = URI.create("jar:" + path.toUri().toString());
 				try (final FileSystem zipFs = FileSystems.newFileSystem(uri, Collections.<String, Object>emptyMap())) {
 					for (Path root : zipFs.getRootDirectories()) {
-						fm = readFromFolder(root, name, fm);
-						fm = readFromFile(root, name, fm);
+						IFeatureModel fm = readFromFolder(root, name);
+						if (fm != null) {
+							return fm;
+						}
+						fm = readFromFile(root, name);
+						if (fm != null) {
+							return fm;
+						}
 					}
-					if (fm != null) {
-						return fm;
-					}
+				} catch (IOException e) {
+					Logger.getInstance().logError(e);
 				}
 			}
 		} catch (IOException e) {

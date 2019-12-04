@@ -116,53 +116,29 @@ public abstract class ABenchmark<A extends Algorithm> {
 			e.printStackTrace();
 		}
 
-		int startSystemIndex = 0;
-
-		Path progressFile;
-		if (config.enableBreaks.getValue() > 0) {
-			try {
-				progressFile = config.configPath.resolve(".progress");
-				if (Files.exists(progressFile)) {
-					List<String> lines = Files.readAllLines(progressFile);
-					if (!lines.isEmpty()) {
-						startSystemIndex = Integer.parseInt(lines.get(0).trim());
-					}
-				}
-			} catch (Exception e) {
-				progressFile = null;
-			}
-		} else {
-			progressFile = null;
-		}
-
 		Logger.getInstance().logInfo("Start");
 
 		final ProcessRunner processRunner = new ProcessRunner();
 		processRunner.setTimeout(config.timeout.getValue());
 
-		final List<String> systemNames = config.systemNames.subList(startSystemIndex, config.systemNames.size());
-		int systemIndex = startSystemIndex;
+		final List<String> systemNames = config.systemNames;
+		int systemIndex = 0;
 
 		systemLoop: for (String systemName : systemNames) {
-			if (progressFile != null) {
-				try {
-					Files.write(progressFile, Integer.toString(startSystemIndex).getBytes());
-				} catch (IOException e) {
-					Logger.getInstance().logError(e);
-				}
-			}
 			systemIndex++;
 			logSystem(systemName, systemIndex);
 			final List<A> algorithms;
 			try {
 				algorithms = prepareAlgorithms(systemIndex);
 			} catch (Exception e) {
+				Logger.getInstance().logError(e);
 				continue systemLoop;
 			}
 			for (int systemIteration = 1; systemIteration <= config.systemIterations.getValue(); systemIteration++) {
 				try {
 					prepareModel(systemName, systemIndex, systemIteration);
 				} catch (Exception e) {
+					Logger.getInstance().logError(e);
 					continue systemLoop;
 				}
 				int algorithmIndex = 0;
@@ -174,30 +150,22 @@ public abstract class ABenchmark<A extends Algorithm> {
 						dataCSVWriter.addValue(algorithmIndex);
 						dataCSVWriter.addValue(systemIteration);
 						dataCSVWriter.addValue(algorithmIteration);
-						logRun(algorithms, systemIteration, algorithmIndex, algorithm, algorithmIteration);
+						logRun(algorithms, systemIndex, systemIteration, algorithmIndex, algorithm, algorithmIteration);
 						Result result = processRunner.run(algorithm, dataCSVWriter);
 						dataCSVWriter.addValue(result.isTerminatedInTime());
 						dataCSVWriter.addValue(result.isNoError());
 						dataCSVWriter.addValue(result.getTime());
 						try {
-							algorithm.parseResults();
 							writeData(systemName, algorithm, systemIteration, algorithmIteration, dataCSVWriter);
 						} catch (Exception e) {
 							dataCSVWriter.resetLine();
+							Logger.getInstance().logError(e);
 							continue algorithmLoop;
 						}
 						dataCSVWriter.flush();
 					}
 					algorithmIndex++;
 				}
-			}
-		}
-
-		if (progressFile != null) {
-			try {
-				Files.deleteIfExists(progressFile);
-			} catch (IOException e) {
-				Logger.getInstance().logError(e);
 			}
 		}
 
@@ -216,9 +184,13 @@ public abstract class ABenchmark<A extends Algorithm> {
 		Logger.getInstance().logInfo(sb.toString(), 1, false);
 	}
 
-	private void logRun(List<A> algorithms, int systemIteration, int algorithmIndex, A algorithm,
+	private void logRun(List<A> algorithms, int systemIndex, int systemIteration, int algorithmIndex, A algorithm,
 			int algorithmIteration) {
 		StringBuilder sb = new StringBuilder();
+		sb.append(systemIndex);
+		sb.append("/");
+		sb.append(config.systemNames.size());
+		sb.append(" | ");
 		sb.append(systemIteration);
 		sb.append("/");
 		sb.append(config.systemIterations.getValue());
@@ -232,7 +204,7 @@ public abstract class ABenchmark<A extends Algorithm> {
 		sb.append(algorithmIteration);
 		sb.append("/");
 		sb.append(config.algorithmIterations.getValue());
-		Logger.getInstance().logInfo(sb.toString(), 1, false);
+		Logger.getInstance().logInfo(sb.toString(), 2, false);
 	}
 
 	protected abstract void prepareModel(String systemName, int id, int systemIteration) throws Exception;

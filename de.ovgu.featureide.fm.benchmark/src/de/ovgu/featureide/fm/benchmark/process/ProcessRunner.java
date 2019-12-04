@@ -75,6 +75,11 @@ public class ProcessRunner {
 			Logger.getInstance().logError(e);
 		}
 		try {
+			algorithm.parseResults();
+		} catch (Exception e) {
+			Logger.getInstance().logError(e);
+		}
+		try {
 			algorithm.postProcess();
 		} catch (Exception e) {
 			Logger.getInstance().logError(e);
