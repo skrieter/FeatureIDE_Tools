@@ -116,7 +116,7 @@ public abstract class ABenchmark<A extends Algorithm> {
 			e.printStackTrace();
 		}
 
-		Logger.getInstance().logInfo("Start");
+		Logger.getInstance().logInfo("Start", false);
 
 		final ProcessRunner processRunner = new ProcessRunner();
 		processRunner.setTimeout(config.timeout.getValue());
@@ -169,7 +169,7 @@ public abstract class ABenchmark<A extends Algorithm> {
 			}
 		}
 
-		Logger.getInstance().logInfo("Finished");
+		Logger.getInstance().logInfo("Finished", false);
 	}
 
 	private void logSystem(String systemName, int systemIndex) {
@@ -267,7 +267,7 @@ public abstract class ABenchmark<A extends Algorithm> {
 			StringBuilder sb = new StringBuilder();
 			sb.append("\t").append(prop.getKey()).append(" = ");
 			sb.append(prop.getValue().toString());
-			Logger.getInstance().logInfo(sb.toString());
+			Logger.getInstance().logInfo(sb.toString(), false);
 		}
 	}
 

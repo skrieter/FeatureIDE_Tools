@@ -93,11 +93,11 @@ public class Logger {
 	}
 
 	public final void logError(String message) {
-		println(errStream, message, false);
+		println(errStream, message, true);
 	}
 
 	public final void logError(Throwable error) {
-		println(errStream, error, false);
+		println(errStream, error, true);
 	}
 
 	public final void logError(String message, boolean onlyVerbose) {
@@ -105,7 +105,7 @@ public class Logger {
 	}
 
 	public final void logInfo(String message) {
-		println(outStream, message, false);
+		println(outStream, message, true);
 	}
 
 	public final void logInfo(String message, boolean onlyVerbose) {

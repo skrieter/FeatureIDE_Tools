@@ -151,17 +151,18 @@ public class BenchmarkConfig {
 	}
 
 	private Properties readConfigFile(final Path path) throws Exception {
-		Logger.getInstance().logInfo("Reading config file. (" + path.toString() + ") ... ");
+		Logger.getInstance().logInfo("Reading config file. (" + path.toString() + ") ... ", false);
 		final Properties properties = new Properties();
 		try {
 			properties.load(Files.newInputStream(path));
 			for (IProperty prop : propertyList) {
 				prop.setValue(properties.getProperty(prop.getKey()));
 			}
-			Logger.getInstance().logInfo("Success!");
+			Logger.getInstance().logInfo("Success!", false);
 			return properties;
 		} catch (IOException e) {
-			Logger.getInstance().logInfo("Fail! -> " + e.getMessage());
+			Logger.getInstance().logInfo("Fail! -> " + e.getMessage(), false);
+			Logger.getInstance().logError(e);
 			throw e;
 		}
 	}
