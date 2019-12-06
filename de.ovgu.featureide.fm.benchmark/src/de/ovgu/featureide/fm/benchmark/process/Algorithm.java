@@ -4,15 +4,15 @@ import java.util.List;
 
 public interface Algorithm {
 
-	void preProcess();
+	void preProcess() throws Exception;
 
 	List<String> getCommand();
 
-	void postProcess();
+	void postProcess() throws Exception;
 
-	boolean parseResults();
+	boolean parseResults() throws Exception;
 
-	default void parseOutput(String line) {
+	default void parseOutput(String line) throws Exception {
 	}
 
 	String getName();

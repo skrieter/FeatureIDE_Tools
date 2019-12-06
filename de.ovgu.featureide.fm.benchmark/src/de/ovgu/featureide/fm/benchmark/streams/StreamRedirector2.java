@@ -1,7 +1,6 @@
 package de.ovgu.featureide.fm.benchmark.streams;
 
 import java.io.BufferedReader;
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
@@ -26,11 +25,11 @@ public class StreamRedirector2 implements Runnable {
 
 		try (BufferedReader reader = new BufferedReader(new InputStreamReader(in))) {
 			for (String line = reader.readLine(); line != null; line = reader.readLine()) {
-				algorithm.parseOutput(line);
 				out.print("\t");
 				out.println(line);
+				algorithm.parseOutput(line);
 			}
-		} catch (IOException e) {
+		} catch (Exception e) {
 			Logger.getInstance().logError(e);
 		}
 	}
