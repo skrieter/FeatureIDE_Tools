@@ -7,6 +7,7 @@ import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class CSVWriter {
 	private static final String NEWLINE = System.lineSeparator();
@@ -193,6 +194,22 @@ public class CSVWriter {
 
 	public void setKeepLines(boolean keepLines) {
 		this.keepLines = keepLines;
+	}
+
+	@Override
+	public int hashCode() {
+		return path.hashCode();
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj) {
+			return true;
+		}
+		if (obj == null || getClass() != obj.getClass()) {
+			return false;
+		}
+		return Objects.equals(path, ((CSVWriter) obj).path);
 	}
 
 }

@@ -12,9 +12,9 @@ public class StreamRedirector2 implements Runnable {
 
 	private final InputStream in;
 	private final PrintStream out;
-	private final Algorithm algorithm;
+	private final Algorithm<?> algorithm;
 
-	public StreamRedirector2(InputStream in, PrintStream out, Algorithm algorithm) {
+	public StreamRedirector2(InputStream in, PrintStream out, Algorithm<?> algorithm) {
 		this.in = in;
 		this.out = out;
 		this.algorithm = algorithm;
@@ -22,7 +22,6 @@ public class StreamRedirector2 implements Runnable {
 
 	@Override
 	public void run() {
-
 		try (BufferedReader reader = new BufferedReader(new InputStreamReader(in))) {
 			for (String line = reader.readLine(); line != null; line = reader.readLine()) {
 				out.print("\t");

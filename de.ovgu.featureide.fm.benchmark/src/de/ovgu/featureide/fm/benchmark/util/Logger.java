@@ -97,7 +97,7 @@ public class Logger {
 	}
 
 	public final void logError(Throwable error) {
-		println(errStream, error, true);
+		println(errStream, error, false);
 	}
 
 	public final void logError(String message, boolean onlyVerbose) {

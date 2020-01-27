@@ -1,26 +1,50 @@
 package de.ovgu.featureide.fm.benchmark.process;
 
 import java.util.List;
+import java.util.Objects;
 
-public interface Algorithm {
+public abstract class Algorithm<R> {
 
-	void preProcess() throws Exception;
+	public abstract void preProcess() throws Exception;
 
-	List<String> getCommand();
+	public abstract List<String> getCommand();
 
-	void postProcess() throws Exception;
+	public abstract void postProcess() throws Exception;
 
-	boolean parseResults() throws Exception;
+	public abstract R parseResults() throws Exception;
 
-	default void parseOutput(String line) throws Exception {
+	public void parseOutput(String line) throws Exception {
 	}
 
-	String getName();
+	public abstract String getName();
 
-	String getParameterSettings();
+	public abstract String getParameterSettings();
 
-	default String getFullName() {
+	public String getFullName() {
 		return getName() + "_" + getParameterSettings();
 	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj) {
+			return true;
+		}
+		if ((obj == null) || (getClass() != obj.getClass())) {
+			return false;
+		}
+		final Algorithm<?> other = (Algorithm<?>) obj;
+		return Objects.equals(getFullName(), other.getFullName());
+	}
+
+	@Override
+	public int hashCode() {
+		return getFullName().hashCode();
+	}
+
+	@Override
+	public String toString() {
+		return getFullName();
+	}
+
 
 }

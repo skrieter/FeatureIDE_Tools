@@ -19,7 +19,7 @@ public abstract class AProperty<T> implements IProperty {
 	}
 
 	public T getValue() {
-		return value;
+		return (value != null) ? value : defaultValue;
 	}
 
 	public String getKey() {
@@ -40,13 +40,23 @@ public abstract class AProperty<T> implements IProperty {
 			} catch (Exception e) {
 			}
 		}
-		value = getDefaultValue();
 		return false;
 	}
 
 	@Override
 	public String toString() {
-		return value != null ? value.toString() : "no value";
+		final StringBuilder sb = new StringBuilder();
+		sb.append(key);
+		sb.append(" = ");
+		if (value != null) {
+			 sb.append(value.toString());
+		} else if (defaultValue != null) {
+			 sb.append(defaultValue.toString());
+			 sb.append(" (default value)");
+		} else {
+			 sb.append("null");
+		}
+		return sb.toString();
 	}
 
 }

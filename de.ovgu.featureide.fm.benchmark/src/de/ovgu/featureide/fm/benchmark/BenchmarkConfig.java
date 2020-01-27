@@ -20,7 +20,6 @@
  */
 package de.ovgu.featureide.fm.benchmark;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
@@ -37,8 +36,6 @@ import de.ovgu.featureide.fm.benchmark.properties.IntProperty;
 import de.ovgu.featureide.fm.benchmark.properties.LongProperty;
 import de.ovgu.featureide.fm.benchmark.properties.Seed;
 import de.ovgu.featureide.fm.benchmark.properties.StringProperty;
-import de.ovgu.featureide.fm.benchmark.util.CSVWriter;
-import de.ovgu.featureide.fm.benchmark.util.FeatureModelReader;
 import de.ovgu.featureide.fm.benchmark.util.Logger;
 
 /**
@@ -55,73 +52,109 @@ public class BenchmarkConfig {
 
 	protected static final List<IProperty> propertyList = new LinkedList<>();
 
-	protected final StringProperty outputPathProperty = new StringProperty("output");
-	protected final StringProperty modelsPathProperty = new StringProperty("models");
-	protected final StringProperty resourcesPathProperty = new StringProperty("resources");
+	public final StringProperty outputPathProperty = new StringProperty("output");
+	public final StringProperty modelsPathProperty = new StringProperty("models");
+	public final StringProperty resourcesPathProperty = new StringProperty("resources");
 
-	protected final IntProperty debug = new IntProperty("debug");
-	protected final IntProperty enableBreaks = new IntProperty("enableBreaks");
-	protected final IntProperty verbosity = new IntProperty("verbosity");
-	protected final LongProperty timeout = new LongProperty("timeout", Long.MAX_VALUE);
+	public final IntProperty debug = new IntProperty("debug");
+	public final IntProperty verbosity = new IntProperty("verbosity");
+	public final LongProperty timeout = new LongProperty("timeout", Long.MAX_VALUE);
 	public final Seed randomSeed = new Seed();
 
-	protected final IntProperty systemIterations = new IntProperty("systemIterations", 1);
-	protected final IntProperty algorithmIterations = new IntProperty("algorithmIterations", 1);
-
-	protected final CSVWriter csvWriter = new CSVWriter();
-	protected final FeatureModelReader featureModelReader = new FeatureModelReader();
+	public final IntProperty systemIterations = new IntProperty("systemIterations", 1);
+	public final IntProperty algorithmIterations = new IntProperty("algorithmIterations", 1);
 
 	public Path configPath;
 	public Path outputPath;
+	public Path outputRootPath;
 	public Path modelPath;
 	public Path resourcePath;
 	public Path csvPath;
 	public Path tempPath;
-	protected List<String> systemNames;
+	public Path logPath;
+	public List<String> systemNames;
 
 	public static void addProperty(IProperty property) {
 		propertyList.add(property);
 	}
 
 	public BenchmarkConfig() {
-		this(null);
+		this.configPath = Paths.get(DEFAULT_CONFIG_DIRECTORY);
 	}
 
 	public BenchmarkConfig(String configPath) {
-		initConfigPath(configPath);
-		initOutputPath();
-		initModelPath();
+		this.configPath = Paths.get(configPath);
 	}
 
-	private void initConfigPath(String configPath) {
-		try {
-			if (configPath != null) {
-				this.configPath = Paths.get(configPath).resolve("config.properties");
-			} else {
-				this.configPath = Paths.get(DEFAULT_CONFIG_DIRECTORY).resolve("config.properties");
-			}
-			readConfigFile(this.configPath);
-		} catch (Exception e) {
+	public void readConfig(String name) {
+		initConfigPath("paths");
+		if (name != null) {
+			initConfigPath(name);
 		}
+		initPaths();
 	}
 
-	private void initOutputPath() {
-		outputPath = Paths.get(((outputPathProperty.getValue().isEmpty()) ? "output" : outputPathProperty.getValue())
-				+ File.separator + (Long.MAX_VALUE - System.currentTimeMillis()));
-		csvPath = outputPath.resolve("data");
-		tempPath = outputPath.resolve("temp");
-	}
-
-	private void initModelPath() {
+	private void initPaths() {
+		outputRootPath = Paths
+				.get((outputPathProperty.getValue().isEmpty()) ? "output" : outputPathProperty.getValue());
 		resourcePath = Paths.get((resourcesPathProperty.getValue().isEmpty()) ? DEFAULT_RESOURCE_DIRECTORY
 				: resourcesPathProperty.getValue());
 
 		modelPath = resourcePath.resolve(
 				(modelsPathProperty.getValue().isEmpty()) ? DEFAULT_MODELS_DIRECTORY : modelsPathProperty.getValue());
+	}
+
+	public void setup() {
+		initOutputPath();
+		readSystemNames();
+	}
+
+	private void initConfigPath(String configName) {
+		try {
+			readConfigFile(this.configPath.resolve(configName + ".properties"));
+		} catch (Exception e) {
+		}
+	}
+
+	private long getOutputID() {
+		return Long.MAX_VALUE - System.currentTimeMillis();
+	}
+
+	private void initOutputPath() {
+		Path currentOutputMarkerFile = outputRootPath.resolve(".current");
+		long currentOutputMarker = -1;
+		if (Files.isReadable(currentOutputMarkerFile)) {
+			List<String> lines;
+			try {
+				lines = Files.readAllLines(currentOutputMarkerFile);
+
+				if (!lines.isEmpty()) {
+					String firstLine = lines.get(0);
+					currentOutputMarker = Long.parseLong(firstLine.trim());
+				}
+			} catch (Exception e) {
+				Logger.getInstance().logError(e);
+			}
+		}
+		if (currentOutputMarker < 0) {
+			currentOutputMarker = getOutputID();
+			try {
+				Files.write(currentOutputMarkerFile, String.valueOf(currentOutputMarker).getBytes());
+			} catch (IOException e) {
+				Logger.getInstance().logError(e);
+			}
+		}
+		outputPath = outputRootPath.resolve(String.valueOf(currentOutputMarker));
+		csvPath = outputPath.resolve("data");
+		tempPath = outputPath.resolve("temp");
+		logPath = outputPath.resolve("log-" + System.currentTimeMillis());
+	}
+
+	private void readSystemNames() {
 
 		List<String> lines = null;
 		try {
-			lines = Files.readAllLines(configPath.getParent().resolve("models.txt"), Charset.defaultCharset());
+			lines = Files.readAllLines(configPath.resolve("models.txt"), Charset.defaultCharset());
 		} catch (IOException e) {
 			Logger.getInstance().logError("No feature models specified!");
 			Logger.getInstance().logError(e);
@@ -156,7 +189,10 @@ public class BenchmarkConfig {
 		try {
 			properties.load(Files.newInputStream(path));
 			for (IProperty prop : propertyList) {
-				prop.setValue(properties.getProperty(prop.getKey()));
+				String value = properties.getProperty(prop.getKey());
+				if (value != null) {
+					prop.setValue(value);
+				}
 			}
 			Logger.getInstance().logInfo("Success!", false);
 			return properties;

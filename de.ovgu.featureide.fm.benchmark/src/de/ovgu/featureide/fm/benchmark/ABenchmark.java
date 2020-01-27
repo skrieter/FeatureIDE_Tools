@@ -26,55 +26,57 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.function.Consumer;
 
-import de.ovgu.featureide.fm.benchmark.process.Algorithm;
-import de.ovgu.featureide.fm.benchmark.process.ProcessRunner;
-import de.ovgu.featureide.fm.benchmark.process.ProcessRunner.Result;
 import de.ovgu.featureide.fm.benchmark.properties.IProperty;
 import de.ovgu.featureide.fm.benchmark.util.CSVWriter;
-import de.ovgu.featureide.fm.benchmark.util.FeatureModelReader;
 import de.ovgu.featureide.fm.benchmark.util.Logger;
-import de.ovgu.featureide.fm.core.base.IFeatureModel;
 
 /**
  * @author Sebastian Krieter
  */
-public abstract class ABenchmark<A extends Algorithm> {
+public abstract class ABenchmark {
 
 	protected final BenchmarkConfig config;
 
-	private final CSVWriter dataCSVWriter = new CSVWriter();
-	private final CSVWriter modelCSVWriter = new CSVWriter();
-	private final CSVWriter algorithmCSVWriter = new CSVWriter();
+	private final LinkedHashMap<String, CSVWriter> csvWriterList = new LinkedHashMap<>();
+	
+	protected int systemIndex;
+	protected int systemIteration;
 
-	public ABenchmark(String configPath) throws Exception {
+	public ABenchmark(String configPath, String configName) throws Exception {
 		config = new BenchmarkConfig(configPath);
-		init();
+		config.readConfig(configName);
 	}
 
 	public void init() throws Exception {
+		setupDirectories();
+		addCSVWriters();
+		for (CSVWriter writer : csvWriterList.values()) {
+			writer.flush();
+		}
+		Logger.getInstance().logInfo("Running " + this.getClass().getSimpleName(), false);
+	}
+
+	protected void setupDirectories() throws IOException {
+		config.setup();
 		try {
 			Files.createDirectories(config.outputPath);
 			Files.createDirectories(config.csvPath);
 			Files.createDirectories(config.tempPath);
-			Logger.getInstance().install(config.outputPath, config.verbosity.getValue());
+			Files.createDirectories(config.logPath);
+			Logger.getInstance().install(config.logPath, config.verbosity.getValue());
 		} catch (IOException e) {
 			Logger.getInstance().logError("Could not create output directory.");
 			Logger.getInstance().logError(e);
 			throw e;
 		}
-
-		initCSVWriter(dataCSVWriter, "data.csv", Arrays.asList("ModelID", "AlgorithmID", "SystemIteration",
-				"AlgorithmIteration", "InTime", "NoError", "Time"));
-		initCSVWriter(modelCSVWriter, "models.csv", Arrays.asList("ModelID", "Name"));
-		initCSVWriter(algorithmCSVWriter, "algorithms.csv", Arrays.asList("AlgorithmID", "Name", "Settings"));
-		initCSVWriters();
-		dataCSVWriter.flush();
-		modelCSVWriter.flush();
-		algorithmCSVWriter.flush();
 	}
+
+	protected void addCSVWriters() {
+	};
 
 	public void dispose() {
 		Logger.getInstance().uninstall();
@@ -103,172 +105,65 @@ public abstract class ABenchmark<A extends Algorithm> {
 		}
 	}
 
-	public final IFeatureModel init(final String name) {
-		FeatureModelReader featureModelReader = new FeatureModelReader();
-		return featureModelReader.read(name);
-	}
-
-	public final void run() {
+	public void run() {
 		printConfigFile();
-		try {
-			System.in.read();
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-
-		Logger.getInstance().logInfo("Start", false);
-
-		final ProcessRunner processRunner = new ProcessRunner();
-		processRunner.setTimeout(config.timeout.getValue());
-
-		final List<String> systemNames = config.systemNames;
-		int systemIndex = 0;
-
-		systemLoop: for (String systemName : systemNames) {
-			systemIndex++;
-			logSystem(systemName, systemIndex);
-			final List<A> algorithms;
-			try {
-				algorithms = prepareAlgorithms(systemIndex);
-			} catch (Exception e) {
-				Logger.getInstance().logError(e);
-				continue systemLoop;
-			}
-			for (int systemIteration = 1; systemIteration <= config.systemIterations.getValue(); systemIteration++) {
-				try {
-					prepareModel(systemName, systemIndex, systemIteration);
-				} catch (Exception e) {
-					Logger.getInstance().logError(e);
-					continue systemLoop;
-				}
-				int algorithmIndex = 0;
-				algorithmLoop: for (A algorithm : algorithms) {
-					for (int algorithmIteration = 1; algorithmIteration <= config.algorithmIterations
-							.getValue(); algorithmIteration++) {
-						dataCSVWriter.createNewLine();
-						dataCSVWriter.addValue(systemIndex);
-						dataCSVWriter.addValue(algorithmIndex);
-						dataCSVWriter.addValue(systemIteration);
-						dataCSVWriter.addValue(algorithmIteration);
-						logRun(algorithms, systemIndex, systemIteration, algorithmIndex, algorithm, algorithmIteration);
-						Result result = processRunner.run(algorithm, dataCSVWriter);
-						dataCSVWriter.addValue(result.isTerminatedInTime());
-						dataCSVWriter.addValue(result.isNoError());
-						dataCSVWriter.addValue(result.getTime());
-						try {
-							writeData(systemName, algorithm, systemIteration, algorithmIteration, dataCSVWriter);
-						} catch (Exception e) {
-							dataCSVWriter.resetLine();
-							Logger.getInstance().logError(e);
-							continue algorithmLoop;
-						}
-						dataCSVWriter.flush();
-					}
-					algorithmIndex++;
-				}
-			}
-		}
-
-		Logger.getInstance().logInfo("Finished", false);
 	}
 
-	private void logSystem(String systemName, int systemIndex) {
+	private void printConfigFile() {
+		for (IProperty prop : BenchmarkConfig.propertyList) {
+			Logger.getInstance().logInfo(prop.toString(), 1, false);
+		}
+	}
+	
+	protected void logSystem() {
 		StringBuilder sb = new StringBuilder();
 		sb.append("Processing System: ");
-		sb.append(systemName);
+		sb.append(config.systemNames.get(systemIndex));
 		sb.append(" (");
-		sb.append(systemIndex);
+		sb.append(systemIndex + 1);
 		sb.append("/");
 		sb.append(config.systemNames.size());
 		sb.append(")");
 		Logger.getInstance().logInfo(sb.toString(), 1, false);
 	}
 
-	private void logRun(List<A> algorithms, int systemIndex, int systemIteration, int algorithmIndex, A algorithm,
-			int algorithmIteration) {
-		StringBuilder sb = new StringBuilder();
-		sb.append(systemIndex);
-		sb.append("/");
-		sb.append(config.systemNames.size());
-		sb.append(" | ");
-		sb.append(systemIteration);
-		sb.append("/");
-		sb.append(config.systemIterations.getValue());
-		sb.append(" | ");
-		sb.append(algorithm.getFullName());
-		sb.append(" (");
-		sb.append(algorithmIndex + 1);
-		sb.append("/");
-		sb.append(algorithms.size());
-		sb.append(") | ");
-		sb.append(algorithmIteration);
-		sb.append("/");
-		sb.append(config.algorithmIterations.getValue());
-		Logger.getInstance().logInfo(sb.toString(), 2, false);
+	protected CSVWriter addCSVWriter(String fileName, List<String> csvHeader) {
+		final CSVWriter existingCSVWriter = csvWriterList.get(fileName);
+		if (existingCSVWriter == null) {
+			CSVWriter csvWriter = new CSVWriter();
+			csvWriter.setOutputPath(config.csvPath);
+			csvWriter.setFileName(fileName);
+			csvWriter.setKeepLines(false);
+			csvWriter.setHeader(csvHeader);
+			csvWriterList.put(fileName, csvWriter);
+			return csvWriter;
+		} else {
+			return existingCSVWriter;
+		}
 	}
 
-	protected abstract void prepareModel(String systemName, int id, int systemIteration) throws Exception;
-
-	protected abstract List<A> prepareAlgorithms(int systemIndex) throws Exception;
-
-	protected void initCSVWriters() {
-	};
-
-	protected void writeData(String systemName, A algorithm, int systemIteration, int algorithmIteration,
-			CSVWriter dataCSVWriter) {
+	protected void extendCSVWriter(String fileName, List<String> csvHeader) {
+		final CSVWriter existingCSVWriter = csvWriterList.get(fileName);
+		if (existingCSVWriter != null) {
+			extendCSVWriter(existingCSVWriter, csvHeader);
+		}
 	}
 
-	protected CSVWriter createCSVWriter(String fileName, List<String> csvHeader) {
-		CSVWriter csvWriter = new CSVWriter();
-		initCSVWriter(csvWriter, fileName, csvHeader);
-		csvWriter.flush();
-		return csvWriter;
-	}
-
-	protected final void extendDataCSVWriter(List<String> csvHeader) {
-		extendCSVWriter(dataCSVWriter, csvHeader);
-	}
-
-	protected final void extendModelCSVWriter(List<String> csvHeader) {
-		extendCSVWriter(modelCSVWriter, csvHeader);
-	}
-
-	protected final void extendAlgorithmCSVWriter(List<String> csvHeader) {
-		extendCSVWriter(algorithmCSVWriter, csvHeader);
-	}
-
-	public CSVWriter getDataCSVWriter() {
-		return dataCSVWriter;
-	}
-
-	public CSVWriter getModelCSVWriter() {
-		return modelCSVWriter;
-	}
-
-	public CSVWriter getAlgorithmCSVWriter() {
-		return algorithmCSVWriter;
-	}
-
-	private void initCSVWriter(CSVWriter csvWriter, String fileName, List<String> csvHeader) {
-		csvWriter.setOutputPath(config.csvPath);
-		csvWriter.setFileName(fileName);
-		csvWriter.setKeepLines(false);
-		csvWriter.setHeader(csvHeader);
-	}
-
-	private void extendCSVWriter(CSVWriter csvWriter, List<String> csvHeader) {
+	protected void extendCSVWriter(CSVWriter writer, List<String> csvHeader) {
 		for (String headerValue : csvHeader) {
-			csvWriter.addHeaderValue(headerValue);
+			writer.addHeaderValue(headerValue);
 		}
 	}
-
-	private void printConfigFile() {
-		for (IProperty prop : BenchmarkConfig.propertyList) {
-			StringBuilder sb = new StringBuilder();
-			sb.append("\t").append(prop.getKey()).append(" = ");
-			sb.append(prop.getValue().toString());
-			Logger.getInstance().logInfo(sb.toString(), false);
+	
+	protected final void writeCSV(CSVWriter writer, Consumer<CSVWriter> writing) {
+		writer.createNewLine();
+		try {
+			writing.accept(writer);
+		} catch (Exception e) {
+			writer.resetLine();
+			throw e;
 		}
+		writer.flush();
 	}
 
 }

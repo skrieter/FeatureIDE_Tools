@@ -5,45 +5,13 @@ import java.util.concurrent.TimeUnit;
 
 import de.ovgu.featureide.fm.benchmark.streams.StreamRedirector;
 import de.ovgu.featureide.fm.benchmark.streams.StreamRedirector2;
-import de.ovgu.featureide.fm.benchmark.util.CSVWriter;
 import de.ovgu.featureide.fm.benchmark.util.Logger;
 
 public class ProcessRunner {
 
-	public static class Result {
-		private boolean terminatedInTime = false;
-		private boolean noError = false;
-		private long time = 0;
-
-		public boolean isTerminatedInTime() {
-			return terminatedInTime;
-		}
-
-		public void setTerminatedInTime(boolean terminatedInTime) {
-			this.terminatedInTime = terminatedInTime;
-		}
-
-		public boolean isNoError() {
-			return noError;
-		}
-
-		public void setNoError(boolean noError) {
-			this.noError = noError;
-		}
-
-		public long getTime() {
-			return time;
-		}
-
-		public void setTime(long time) {
-			this.time = time;
-		}
-	}
-
 	private long timeout = Long.MAX_VALUE;
 
-	public Result run(Algorithm algorithm, CSVWriter writer) {
-		final Result result = new Result();
+	public <R> void run(Algorithm<R> algorithm, Result<R> result) {
 		try {
 			System.gc();
 			algorithm.preProcess();
@@ -75,7 +43,7 @@ public class ProcessRunner {
 			Logger.getInstance().logError(e);
 		}
 		try {
-			algorithm.parseResults();
+			result.setResult(algorithm.parseResults());
 		} catch (Exception e) {
 			Logger.getInstance().logError(e);
 		}
@@ -84,7 +52,6 @@ public class ProcessRunner {
 		} catch (Exception e) {
 			Logger.getInstance().logError(e);
 		}
-		return result;
 	}
 
 	public long getTimeout() {
