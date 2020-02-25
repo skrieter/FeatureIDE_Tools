@@ -7,11 +7,11 @@ import de.ovgu.featureide.fm.benchmark.streams.StreamRedirector;
 import de.ovgu.featureide.fm.benchmark.streams.StreamRedirector2;
 import de.ovgu.featureide.fm.benchmark.util.Logger;
 
-public class ProcessRunner {
+public class ProcessRunner<R, A extends Algorithm<R>, K extends Result<R>> {
 
 	private long timeout = Long.MAX_VALUE;
 
-	public <R> void run(Algorithm<R> algorithm, Result<R> result) {
+	public void run(A algorithm, K result) {
 		try {
 			System.gc();
 			algorithm.preProcess();

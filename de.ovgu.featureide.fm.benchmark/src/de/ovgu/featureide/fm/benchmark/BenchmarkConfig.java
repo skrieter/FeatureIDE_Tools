@@ -202,5 +202,9 @@ public class BenchmarkConfig {
 			throw e;
 		}
 	}
+	
+	public Integer getVerbosity() {
+		return verbosity.getValue();
+	}
 
 }

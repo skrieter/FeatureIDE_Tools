@@ -4,6 +4,7 @@ Bundle-Name: Benchmark
 Bundle-SymbolicName: de.ovgu.featureide.fm.benchmark
 Bundle-Version: 2.7.5.qualifier
 Bundle-RequiredExecutionEnvironment: JavaSE-1.8
+Automatic-Module-Name: de.ovgu.featureide.fm.benchmark
 Import-Package: de.ovgu.featureide.fm.core,
  de.ovgu.featureide.fm.core.analysis.cnf,
  de.ovgu.featureide.fm.core.base,
@@ -11,4 +12,3 @@ Import-Package: de.ovgu.featureide.fm.core,
  de.ovgu.featureide.fm.core.init,
  de.ovgu.featureide.fm.core.io,
  de.ovgu.featureide.fm.core.io.manager
-Automatic-Module-Name: de.ovgu.featureide.fm.benchmark

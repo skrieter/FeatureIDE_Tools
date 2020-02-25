@@ -162,6 +162,7 @@ public abstract class ABenchmark {
 		} catch (Exception e) {
 			writer.resetLine();
 			throw e;
+
 		}
 		writer.flush();
 	}
