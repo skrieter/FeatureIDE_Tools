@@ -1,24 +1,52 @@
 package de.ovgu.featureide.fm.benchmark.process;
 
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-public abstract class Algorithm<R> {
+import de.ovgu.featureide.fm.benchmark.streams.IOutputReader;
 
-	public abstract void preProcess() throws Exception;
+public abstract class Algorithm<R> implements IOutputReader {
+	
+	protected int iterations = -1;
 
-	public abstract List<String> getCommand();
+	protected final ArrayList<String> commandElements = new ArrayList<>();
 
 	public abstract void postProcess() throws Exception;
 
-	public abstract R parseResults() throws Exception;
+	public abstract R parseResults() throws IOException;
 
-	public void parseOutput(String line) throws Exception {
+	public void readOutput(String line) throws Exception {
 	}
 
 	public abstract String getName();
 
 	public abstract String getParameterSettings();
+
+	public void preProcess() throws Exception {
+		commandElements.clear();
+		addCommandElements();
+	}
+
+	protected abstract void addCommandElements() throws Exception;
+
+	public void addCommandElement(String parameter) {
+		commandElements.add(parameter);
+	}
+
+	public List<String> getCommandElements() {
+		return commandElements;
+	}
+
+	public String getCommand() {
+		StringBuilder commandBuilder = new StringBuilder();
+		for (String commandElement : commandElements) {
+			commandBuilder.append(commandElement);
+			commandBuilder.append(' ');
+		}
+		return commandBuilder.toString();
+	}
 
 	public String getFullName() {
 		return getName() + "_" + getParameterSettings();
@@ -46,5 +74,12 @@ public abstract class Algorithm<R> {
 		return getFullName();
 	}
 
+	public int getIterations() {
+		return iterations;
+	}
+
+	public void setIterations(int iterations) {
+		this.iterations = iterations;
+	}
 
 }

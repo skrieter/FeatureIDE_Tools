@@ -21,6 +21,8 @@ public class CSVWriter {
 	private Path path;
 	private boolean dummy = false;
 	private boolean keepLines = false;
+	private boolean append = false;
+	private boolean newFile = true;
 	private int nextLine = 0;
 
 	public Path getOutputPath() {
@@ -56,8 +58,15 @@ public class CSVWriter {
 	private void setPath(Path path) {
 		this.path = path;
 		try {
-			Files.deleteIfExists(path);
-			Files.createFile(path);
+			if (append) {
+				newFile = !Files.exists(path);
+			} else {
+				Files.deleteIfExists(path);
+				newFile = true;
+			}
+			if (newFile) {
+				Files.createFile(path);
+			}
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -91,6 +100,9 @@ public class CSVWriter {
 			values.add(this.header);
 		} else {
 			values.set(0, this.header);
+		}
+		if (!newFile) {
+			nextLine = 1;
 		}
 	}
 
@@ -194,6 +206,14 @@ public class CSVWriter {
 
 	public void setKeepLines(boolean keepLines) {
 		this.keepLines = keepLines;
+	}
+
+	public boolean isAppend() {
+		return append;
+	}
+
+	public void setAppend(boolean append) {
+		this.append = append;
 	}
 
 	@Override

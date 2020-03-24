@@ -31,6 +31,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Properties;
 
+import de.ovgu.featureide.fm.benchmark.properties.BoolProperty;
 import de.ovgu.featureide.fm.benchmark.properties.IProperty;
 import de.ovgu.featureide.fm.benchmark.properties.IntProperty;
 import de.ovgu.featureide.fm.benchmark.properties.LongProperty;
@@ -56,6 +57,7 @@ public class BenchmarkConfig {
 	public final StringProperty modelsPathProperty = new StringProperty("models");
 	public final StringProperty resourcesPathProperty = new StringProperty("resources");
 
+	public final BoolProperty append = new BoolProperty("append");
 	public final IntProperty debug = new IntProperty("debug");
 	public final IntProperty verbosity = new IntProperty("verbosity");
 	public final LongProperty timeout = new LongProperty("timeout", Long.MAX_VALUE);
@@ -73,6 +75,7 @@ public class BenchmarkConfig {
 	public Path tempPath;
 	public Path logPath;
 	public List<String> systemNames;
+	public List<Integer> systemIDs;
 
 	public static void addProperty(IProperty property) {
 		propertyList.add(property);
@@ -122,7 +125,7 @@ public class BenchmarkConfig {
 
 	private void initOutputPath() {
 		Path currentOutputMarkerFile = outputRootPath.resolve(".current");
-		long currentOutputMarker = -1;
+		String currentOutputMarker = null;
 		if (Files.isReadable(currentOutputMarkerFile)) {
 			List<String> lines;
 			try {
@@ -130,21 +133,21 @@ public class BenchmarkConfig {
 
 				if (!lines.isEmpty()) {
 					String firstLine = lines.get(0);
-					currentOutputMarker = Long.parseLong(firstLine.trim());
+					currentOutputMarker = firstLine.trim();
 				}
 			} catch (Exception e) {
 				Logger.getInstance().logError(e);
 			}
 		}
-		if (currentOutputMarker < 0) {
-			currentOutputMarker = getOutputID();
+		if (currentOutputMarker == null) {
+			currentOutputMarker = Long.toString(getOutputID());
 			try {
-				Files.write(currentOutputMarkerFile, String.valueOf(currentOutputMarker).getBytes());
+				Files.write(currentOutputMarkerFile, currentOutputMarker.getBytes());
 			} catch (IOException e) {
 				Logger.getInstance().logError(e);
 			}
 		}
-		outputPath = outputRootPath.resolve(String.valueOf(currentOutputMarker));
+		outputPath = outputRootPath.resolve(currentOutputMarker);
 		csvPath = outputPath.resolve("data");
 		tempPath = outputPath.resolve("temp");
 		logPath = outputPath.resolve("log-" + System.currentTimeMillis());
@@ -163,20 +166,23 @@ public class BenchmarkConfig {
 		if (lines != null) {
 			boolean pause = false;
 			systemNames = new ArrayList<>(lines.size());
+			systemIDs = new ArrayList<>(lines.size());
+			int lineNumber = 0;
 			for (String modelName : lines) {
 				// modelName = modelName.trim();
 				if (!modelName.trim().isEmpty()) {
 					if (!modelName.startsWith("\t")) {
-
 						if (modelName.startsWith(COMMENT)) {
 							if (modelName.equals(STOP_MARK)) {
 								pause = !pause;
 							}
 						} else if (!pause) {
 							systemNames.add(modelName.trim());
+							systemIDs.add(lineNumber);
 						}
 					}
 				}
+				lineNumber++;
 			}
 		} else {
 			systemNames = Collections.<String>emptyList();

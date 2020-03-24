@@ -100,6 +100,10 @@ public class Logger {
 		println(errStream, error, false);
 	}
 
+	public final void logError(Throwable error, boolean onlyVerbose) {
+		println(errStream, error, onlyVerbose);
+	}
+
 	public final void logError(String message, boolean onlyVerbose) {
 		println(errStream, message, onlyVerbose);
 	}

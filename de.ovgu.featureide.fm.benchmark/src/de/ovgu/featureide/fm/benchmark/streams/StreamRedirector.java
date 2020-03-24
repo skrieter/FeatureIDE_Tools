@@ -4,25 +4,33 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.PrintStream;
+import java.util.List;
 
 import de.ovgu.featureide.fm.benchmark.util.Logger;
 
 public class StreamRedirector implements Runnable {
 
-	private final InputStream in;
-	private final PrintStream out;
+	private final List<IOutputReader> outputReaderList;
+	private InputStream in;
 
-	public StreamRedirector(InputStream in, PrintStream out) {
+	public StreamRedirector(List<IOutputReader> outputReaderList) {
+		this.outputReaderList = outputReaderList;
+	}
+
+	public void setInputStream(InputStream in) {
 		this.in = in;
-		this.out = out;
 	}
 
 	@Override
 	public void run() {
 		try (BufferedReader reader = new BufferedReader(new InputStreamReader(in))) {
 			for (String line = reader.readLine(); line != null; line = reader.readLine()) {
-				out.println(line);
+				for (IOutputReader outputReader : outputReaderList) {
+					try {
+						outputReader.readOutput(line);
+					} catch (Exception e) {
+					}
+				}
 			}
 		} catch (IOException e) {
 			Logger.getInstance().logError(e);

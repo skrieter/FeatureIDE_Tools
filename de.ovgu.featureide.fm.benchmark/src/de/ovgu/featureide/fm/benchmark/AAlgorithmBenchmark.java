@@ -20,9 +20,7 @@
  */
 package de.ovgu.featureide.fm.benchmark;
 
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.LinkedHashMap;
 import java.util.List;
 
 import de.ovgu.featureide.fm.benchmark.process.Algorithm;
@@ -37,8 +35,7 @@ import de.ovgu.featureide.fm.core.analysis.cnf.CNF;
  */
 public abstract class AAlgorithmBenchmark<R, A extends Algorithm<R>> extends ABenchmark {
 
-	protected final LinkedHashMap<Algorithm<R>, Integer> algorithmMap = new LinkedHashMap<>();
-	protected final List<Algorithm<R>> algorithmList = new ArrayList<>();
+	protected List<A> algorithmList;
 
 	private CSVWriter dataCSVWriter, modelCSVWriter, algorithmCSVWriter;
 
@@ -58,7 +55,8 @@ public abstract class AAlgorithmBenchmark<R, A extends Algorithm<R>> extends ABe
 		dataCSVWriter = addCSVWriter("data.csv", Arrays.asList("ModelID", "AlgorithmID", "SystemIteration",
 				"AlgorithmIteration", "InTime", "NoError", "Time"));
 		modelCSVWriter = addCSVWriter("models.csv", Arrays.asList("ModelID", "Name"));
-		algorithmCSVWriter = addCSVWriter("algorithms.csv", Arrays.asList("AlgorithmID", "Name", "Settings"));
+		algorithmCSVWriter = addCSVWriter("algorithms.csv",
+				Arrays.asList("ModelID", "AlgorithmID", "Name", "Settings"));
 	};
 
 	public void run() {
@@ -70,29 +68,27 @@ public abstract class AAlgorithmBenchmark<R, A extends Algorithm<R>> extends ABe
 			final ProcessRunner processRunner = new ProcessRunner();
 			processRunner.setTimeout(config.timeout.getValue());
 
-			int maxAlgorithmIndex = 0;
 			int systemIndexEnd = config.systemNames.size();
 
-			systemLoop: for (systemIndex = 0; systemIndex < systemIndexEnd; systemIndex++) {
+			systemLoop: for (systemID = 0; systemID < systemIndexEnd; systemID++) {
 				logSystem();
-				final List<A> algorithms;
 				try {
-					algorithms = prepareAlgorithms();
+					algorithmList = prepareAlgorithms();
 				} catch (Exception e) {
 					Logger.getInstance().logError(e);
 					continue systemLoop;
 				}
-				for (A algorithm : algorithms) {
-					if (!algorithmMap.containsKey(algorithm)) {
-						algorithmMap.put(algorithm, maxAlgorithmIndex);
-						algorithmList.add(algorithm);
-						algorithmIndex = maxAlgorithmIndex;
-						writeCSV(algorithmCSVWriter, this::writeAlgorithm);
-						maxAlgorithmIndex++;
+				algorithmIndex = 0;
+				for (A algorithm : algorithmList) {
+					if (algorithm.getIterations() < 0) {
+						algorithm.setIterations(config.algorithmIterations.getValue());
 					}
+					writeCSV(algorithmCSVWriter, this::writeAlgorithm);
+					algorithmIndex++;
 				}
 				try {
 					modelCNF = prepareModel();
+					writeCSV(modelCSVWriter, this::writeModel);
 				} catch (Exception e) {
 					Logger.getInstance().logError(e);
 					continue systemLoop;
@@ -100,16 +96,22 @@ public abstract class AAlgorithmBenchmark<R, A extends Algorithm<R>> extends ABe
 				for (systemIteration = 1; systemIteration <= config.systemIterations.getValue(); systemIteration++) {
 					try {
 						randomizedModelCNF = adaptModel();
-						writeCSV(modelCSVWriter, this::writeModel);
 					} catch (Exception e) {
 						Logger.getInstance().logError(e);
 						continue systemLoop;
 					}
-
-					algorithmLoop: for (A algorithm : algorithms) {
-						algorithmIndex = algorithmMap.get(algorithm);
-						for (algorithmIteration = 1; algorithmIteration <= config.algorithmIterations
-								.getValue(); algorithmIteration++) {
+					config.algorithmIterations.getValue();
+					algorithmIndex = -1;
+					algorithmLoop: for (A algorithm : algorithmList) {
+						algorithmIndex++;
+						for (algorithmIteration = 1; algorithmIteration <= algorithm
+								.getIterations(); algorithmIteration++) {
+							try {
+								adaptAlgorithm(algorithm);
+							} catch (Exception e) {
+								Logger.getInstance().logError(e);
+								continue algorithmLoop;
+							}
 							try {
 								logRun();
 								result = new Result<>();
@@ -131,22 +133,23 @@ public abstract class AAlgorithmBenchmark<R, A extends Algorithm<R>> extends ABe
 	}
 
 	protected void writeModel(CSVWriter modelCSVWriter) {
-		modelCSVWriter.addValue(systemIndex);
-		modelCSVWriter.addValue(config.systemNames.get(systemIndex));
+		modelCSVWriter.addValue(config.systemIDs.get(systemID));
+		modelCSVWriter.addValue(config.systemNames.get(systemID));
 		modelCSVWriter.addValue(-1);
-		modelCSVWriter.addValue(randomizedModelCNF.getVariables().size());
-		modelCSVWriter.addValue(randomizedModelCNF.getClauses().size());
+		modelCSVWriter.addValue(modelCNF.getVariables().size());
+		modelCSVWriter.addValue(modelCNF.getClauses().size());
 	}
 
 	protected void writeAlgorithm(CSVWriter algorithmCSVWriter) {
 		final Algorithm<?> algorithm = algorithmList.get(algorithmIndex);
+		algorithmCSVWriter.addValue(config.systemIDs.get(systemID));
 		algorithmCSVWriter.addValue(algorithmIndex);
 		algorithmCSVWriter.addValue(algorithm.getName());
 		algorithmCSVWriter.addValue(algorithm.getParameterSettings());
 	}
 
 	protected void writeData(CSVWriter dataCSVWriter) {
-		dataCSVWriter.addValue(systemIndex);
+		dataCSVWriter.addValue(config.systemIDs.get(systemID));
 		dataCSVWriter.addValue(algorithmIndex);
 		dataCSVWriter.addValue(systemIteration);
 		dataCSVWriter.addValue(algorithmIteration);
@@ -157,7 +160,7 @@ public abstract class AAlgorithmBenchmark<R, A extends Algorithm<R>> extends ABe
 
 	private void logRun() {
 		StringBuilder sb = new StringBuilder();
-		sb.append(systemIndex + 1);
+		sb.append(systemID + 1);
 		sb.append("/");
 		sb.append(config.systemNames.size());
 		sb.append(" | ");
@@ -173,13 +176,15 @@ public abstract class AAlgorithmBenchmark<R, A extends Algorithm<R>> extends ABe
 		sb.append(" | ");
 		sb.append(algorithmIteration);
 		sb.append("/");
-		sb.append(config.algorithmIterations.getValue());
+		sb.append(algorithmList.get(algorithmIndex).getIterations());
 		Logger.getInstance().logInfo(sb.toString(), 2, false);
 	}
 
 	protected abstract CNF prepareModel() throws Exception;
 
 	protected abstract CNF adaptModel() throws Exception;
+
+	protected abstract void adaptAlgorithm(A algorithm) throws Exception;
 
 	protected abstract List<A> prepareAlgorithms() throws Exception;
 

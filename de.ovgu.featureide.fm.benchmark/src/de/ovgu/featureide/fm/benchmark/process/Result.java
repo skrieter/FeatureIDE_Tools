@@ -1,10 +1,12 @@
 package de.ovgu.featureide.fm.benchmark.process;
 
 public class Result<R> {
+	
+	public static long INVALID_TIME = -1;
 
 	private boolean terminatedInTime = false;
 	private boolean noError = false;
-	private long time = -1;
+	private long time = INVALID_TIME;
 	private R result = null;
 
 	public boolean isTerminatedInTime() {
