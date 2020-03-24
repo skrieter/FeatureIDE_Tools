@@ -1,5 +1,6 @@
 package de.ovgu.featureide.fm.benchmark.process;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -10,11 +11,11 @@ import de.ovgu.featureide.fm.benchmark.streams.OutStreamReader;
 import de.ovgu.featureide.fm.benchmark.streams.StreamRedirector;
 import de.ovgu.featureide.fm.benchmark.util.Logger;
 
-public class ProcessRunner {
+public class ProcessRunner<R, A extends Algorithm<R>, K extends Result<R>> {
 
 	private long timeout = Long.MAX_VALUE;
 
-	public <R> void run(Algorithm<R> algorithm, Result<R> result) {
+	public void run(A algorithm, K result) {
 		boolean terminatedInTime = false;
 		long startTime = 0, endTime = 0;
 		try {
@@ -25,7 +26,6 @@ public class ProcessRunner {
 
 			final List<String> command = algorithm.getCommandElements();
 			if (!command.isEmpty()) {
-
 				final ProcessBuilder processBuilder = new ProcessBuilder(command);
 				Process process = null;
 
@@ -67,7 +67,7 @@ public class ProcessRunner {
 			result.setTime(Result.INVALID_TIME);
 		}
 		try {
-			result.setResult(algorithm.parseResults());
+			setResult(algorithm, result);
 		} catch (Exception e) {
 			Logger.getInstance().logError(e, true);
 			if (terminatedInTime) {
@@ -79,6 +79,10 @@ public class ProcessRunner {
 		} catch (Exception e) {
 			Logger.getInstance().logError(e);
 		}
+	}
+
+	protected void setResult(A algorithm, K result) throws IOException {
+		result.setResult(algorithm.parseResults());
 	}
 
 	public long getTimeout() {

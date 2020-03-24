@@ -33,7 +33,7 @@ import de.ovgu.featureide.fm.core.analysis.cnf.CNF;
 /**
  * @author Sebastian Krieter
  */
-public abstract class AAlgorithmBenchmark<R, A extends Algorithm<R>> extends ABenchmark {
+public abstract class AAlgorithmBenchmark<R, A extends Algorithm<R>, K extends Result<R>> extends ABenchmark {
 
 	protected List<A> algorithmList;
 
@@ -41,7 +41,7 @@ public abstract class AAlgorithmBenchmark<R, A extends Algorithm<R>> extends ABe
 
 	protected int algorithmIndex;
 	protected int algorithmIteration;
-	protected Result<R> result;
+	protected K result;
 	protected CNF modelCNF;
 	protected CNF randomizedModelCNF;
 
@@ -65,7 +65,7 @@ public abstract class AAlgorithmBenchmark<R, A extends Algorithm<R>> extends ABe
 		if (config.systemIterations.getValue() > 0) {
 			Logger.getInstance().logInfo("Start", false);
 
-			final ProcessRunner processRunner = new ProcessRunner();
+			final ProcessRunner<R,A,K> processRunner = getNewProcessRunner();
 			processRunner.setTimeout(config.timeout.getValue());
 
 			int systemIndexEnd = config.systemNames.size();
@@ -114,7 +114,7 @@ public abstract class AAlgorithmBenchmark<R, A extends Algorithm<R>> extends ABe
 							}
 							try {
 								logRun();
-								result = new Result<>();
+								result = getNewResult();
 								processRunner.run(algorithm, result);
 								writeCSV(dataCSVWriter, this::writeData);
 							} catch (Exception e) {
@@ -188,6 +188,10 @@ public abstract class AAlgorithmBenchmark<R, A extends Algorithm<R>> extends ABe
 
 	protected abstract List<A> prepareAlgorithms() throws Exception;
 
+	protected abstract K getNewResult();
+	
+	protected abstract ProcessRunner<R,A,K> getNewProcessRunner();
+
 	public CSVWriter getDataCSVWriter() {
 		return dataCSVWriter;
 	}
@@ -199,5 +203,6 @@ public abstract class AAlgorithmBenchmark<R, A extends Algorithm<R>> extends ABe
 	public CSVWriter getAlgorithmCSVWriter() {
 		return algorithmCSVWriter;
 	}
+	
 
 }
