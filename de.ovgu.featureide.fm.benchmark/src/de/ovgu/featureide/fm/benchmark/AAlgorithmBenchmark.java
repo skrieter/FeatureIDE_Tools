@@ -70,7 +70,7 @@ public abstract class AAlgorithmBenchmark<R, A extends Algorithm<R>, K extends R
 
 			int systemIndexEnd = config.systemNames.size();
 
-			systemLoop: for (systemID = 0; systemID < systemIndexEnd; systemID++) {
+			systemLoop: for (systemIndex = 0; systemIndex < systemIndexEnd; systemIndex++) {
 				logSystem();
 				try {
 					algorithmList = prepareAlgorithms();
@@ -133,8 +133,8 @@ public abstract class AAlgorithmBenchmark<R, A extends Algorithm<R>, K extends R
 	}
 
 	protected void writeModel(CSVWriter modelCSVWriter) {
-		modelCSVWriter.addValue(config.systemIDs.get(systemID));
-		modelCSVWriter.addValue(config.systemNames.get(systemID));
+		modelCSVWriter.addValue(config.systemIDs.get(systemIndex));
+		modelCSVWriter.addValue(config.systemNames.get(systemIndex));
 		modelCSVWriter.addValue(-1);
 		modelCSVWriter.addValue(modelCNF.getVariables().size());
 		modelCSVWriter.addValue(modelCNF.getClauses().size());
@@ -142,14 +142,14 @@ public abstract class AAlgorithmBenchmark<R, A extends Algorithm<R>, K extends R
 
 	protected void writeAlgorithm(CSVWriter algorithmCSVWriter) {
 		final Algorithm<?> algorithm = algorithmList.get(algorithmIndex);
-		algorithmCSVWriter.addValue(config.systemIDs.get(systemID));
+		algorithmCSVWriter.addValue(config.systemIDs.get(systemIndex));
 		algorithmCSVWriter.addValue(algorithmIndex);
 		algorithmCSVWriter.addValue(algorithm.getName());
 		algorithmCSVWriter.addValue(algorithm.getParameterSettings());
 	}
 
 	protected void writeData(CSVWriter dataCSVWriter) {
-		dataCSVWriter.addValue(config.systemIDs.get(systemID));
+		dataCSVWriter.addValue(config.systemIDs.get(systemIndex));
 		dataCSVWriter.addValue(algorithmIndex);
 		dataCSVWriter.addValue(systemIteration);
 		dataCSVWriter.addValue(algorithmIteration);
@@ -160,7 +160,7 @@ public abstract class AAlgorithmBenchmark<R, A extends Algorithm<R>, K extends R
 
 	private void logRun() {
 		StringBuilder sb = new StringBuilder();
-		sb.append(systemID + 1);
+		sb.append(systemIndex + 1);
 		sb.append("/");
 		sb.append(config.systemNames.size());
 		sb.append(" | ");

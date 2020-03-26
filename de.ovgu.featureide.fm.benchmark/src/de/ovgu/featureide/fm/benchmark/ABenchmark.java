@@ -43,7 +43,7 @@ public abstract class ABenchmark {
 
 	private final LinkedHashMap<String, CSVWriter> csvWriterList = new LinkedHashMap<>();
 	
-	protected int systemID;
+	protected int systemIndex;
 	protected int systemIteration;
 
 	public ABenchmark(String configPath, String configName) throws Exception {
@@ -118,9 +118,9 @@ public abstract class ABenchmark {
 	protected void logSystem() {
 		StringBuilder sb = new StringBuilder();
 		sb.append("Processing System: ");
-		sb.append(config.systemNames.get(systemID));
+		sb.append(config.systemNames.get(systemIndex));
 		sb.append(" (");
-		sb.append(systemID + 1);
+		sb.append(systemIndex + 1);
 		sb.append("/");
 		sb.append(config.systemNames.size());
 		sb.append(")");
