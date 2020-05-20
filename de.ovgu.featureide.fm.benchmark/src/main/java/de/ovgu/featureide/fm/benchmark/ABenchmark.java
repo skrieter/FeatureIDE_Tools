@@ -30,9 +30,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.function.Consumer;
 
+import org.sk.utils.Logger;
+import org.sk.utils.io.CSVWriter;
+
 import de.ovgu.featureide.fm.benchmark.properties.IProperty;
-import de.ovgu.featureide.fm.benchmark.util.CSVWriter;
-import de.ovgu.featureide.fm.benchmark.util.Logger;
 
 /**
  * @author Sebastian Krieter
@@ -57,7 +58,8 @@ public abstract class ABenchmark {
 		for (CSVWriter writer : csvWriterList.values()) {
 			writer.flush();
 		}
-		Logger.getInstance().logInfo("Running " + this.getClass().getSimpleName(), false);
+		Logger.getInstance().logInfo("Running " + this.getClass().getSimpleName(), 0);
+		Logger.getInstance().incTabLevel();
 	}
 
 	protected void setupDirectories() throws IOException {
@@ -67,7 +69,9 @@ public abstract class ABenchmark {
 			Files.createDirectories(config.csvPath);
 			Files.createDirectories(config.tempPath);
 			Files.createDirectories(config.logPath);
-			Logger.getInstance().install(config.logPath, config.verbosity.getValue());
+			Integer verbosityLevel = config.verbosity.getValue();
+			Logger.getInstance().install(config.logPath, verbosityLevel > 0);
+			Logger.getInstance().setVerboseLevel(verbosityLevel);
 		} catch (IOException e) {
 			Logger.getInstance().logError("Could not create output directory.");
 			Logger.getInstance().logError(e);
@@ -75,7 +79,7 @@ public abstract class ABenchmark {
 		}
 	}
 
-	protected void addCSVWriters() {
+	protected void addCSVWriters() throws IOException {
 	};
 
 	public void dispose() {
@@ -111,7 +115,7 @@ public abstract class ABenchmark {
 
 	private void printConfigFile() {
 		for (IProperty prop : BenchmarkConfig.propertyList) {
-			Logger.getInstance().logInfo(prop.toString(), 1, false);
+			Logger.getInstance().logInfo(prop.toString(), 0);
 		}
 	}
 	
@@ -124,15 +128,15 @@ public abstract class ABenchmark {
 		sb.append("/");
 		sb.append(config.systemNames.size());
 		sb.append(")");
-		Logger.getInstance().logInfo(sb.toString(), 1, false);
+		Logger.getInstance().logInfo(sb.toString(), 0);
 	}
 
-	protected CSVWriter addCSVWriter(String fileName, List<String> csvHeader) {
+	protected CSVWriter addCSVWriter(String fileName, List<String> csvHeader) throws IOException {
 		final CSVWriter existingCSVWriter = csvWriterList.get(fileName);
 		if (existingCSVWriter == null) {
 			CSVWriter csvWriter = new CSVWriter();
 			csvWriter.setAppend(config.append.getValue());
-			csvWriter.setOutputPath(config.csvPath);
+			csvWriter.setOutputDirectory(config.csvPath);
 			csvWriter.setFileName(fileName);
 			csvWriter.setKeepLines(false);
 			csvWriter.setHeader(csvHeader);

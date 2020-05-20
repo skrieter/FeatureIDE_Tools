@@ -31,6 +31,8 @@ import java.nio.file.Path;
 import java.util.Collections;
 import java.util.Iterator;
 
+import org.sk.utils.Logger;
+
 import de.ovgu.featureide.fm.core.base.IFeatureModel;
 import de.ovgu.featureide.fm.core.init.FMCoreLibrary;
 import de.ovgu.featureide.fm.core.init.LibraryManager;
@@ -78,7 +80,7 @@ public class FeatureModelReader {
 	public IFeatureModel loadFile(final Path path) {
 		final FileHandler<IFeatureModel> fh = FeatureModelManager.getFileHandler(path);
 		if (fh.getLastProblems().containsError()) {
-			Logger.getInstance().logInfo(fh.getLastProblems().getErrors().get(0).getMessage(), 2, true);
+			Logger.getInstance().logInfo(fh.getLastProblems().getErrors().get(0).getMessage(), 1);
 			return null;
 		} else {
 			return fh.getObject();
@@ -87,7 +89,7 @@ public class FeatureModelReader {
 
 	public IFeatureModel readFromFolder(final Path rootPath, final String name) {
 		Path modelFolder = rootPath.resolve(name);
-		Logger.getInstance().logInfo("Trying to load from folder " + modelFolder, 1, true);
+		Logger.getInstance().logInfo("Trying to load from folder " + modelFolder, 1);
 		if (Files.exists(modelFolder) && Files.isDirectory(modelFolder)) {
 			final Path path = modelFolder.resolve(modelFileName);
 			if (Files.exists(path)) {
@@ -107,7 +109,7 @@ public class FeatureModelReader {
 			final Iterator<Path> iterator = files.iterator();
 			while (iterator.hasNext()) {
 				Path next = iterator.next();
-				Logger.getInstance().logInfo("Trying to load from file " + next, 1, true);
+				Logger.getInstance().logInfo("Trying to load from file " + next, 1);
 				IFeatureModel loadedFm = loadFile(next);
 				if (loadedFm != null) {
 					return loadedFm;
@@ -125,7 +127,7 @@ public class FeatureModelReader {
 				&& file.getFileName().toString().matches(".*[.]zip\\Z");
 		try (DirectoryStream<Path> files = Files.newDirectoryStream(rootPath, fileFilter)) {
 			for (Path path : files) {
-				Logger.getInstance().logInfo("Trying to load from zip file " + path, 1, true);
+				Logger.getInstance().logInfo("Trying to load from zip file " + path, 1);
 				final URI uri = URI.create("jar:" + path.toUri().toString());
 				try (final FileSystem zipFs = FileSystems.newFileSystem(uri, Collections.<String, Object>emptyMap())) {
 					for (Path root : zipFs.getRootDirectories()) {
@@ -146,10 +148,6 @@ public class FeatureModelReader {
 			Logger.getInstance().logError(e);
 		}
 		return null;
-	}
-
-	public void dispose() {
-		Logger.getInstance().uninstall();
 	}
 
 }

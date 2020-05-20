@@ -21,15 +21,15 @@
 package de.ovgu.featureide.fm.benchmark;
 
 import java.io.IOException;
-import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Properties;
+
+import org.sk.utils.Logger;
+import org.sk.utils.io.NameListReader;
 
 import de.ovgu.featureide.fm.benchmark.properties.BoolProperty;
 import de.ovgu.featureide.fm.benchmark.properties.IProperty;
@@ -37,7 +37,6 @@ import de.ovgu.featureide.fm.benchmark.properties.IntProperty;
 import de.ovgu.featureide.fm.benchmark.properties.LongProperty;
 import de.ovgu.featureide.fm.benchmark.properties.Seed;
 import de.ovgu.featureide.fm.benchmark.properties.StringProperty;
-import de.ovgu.featureide.fm.benchmark.util.Logger;
 
 /**
  * @author Sebastian Krieter
@@ -47,9 +46,6 @@ public class BenchmarkConfig {
 	private static final String DEFAULT_RESOURCE_DIRECTORY = "resources";
 	private static final String DEFAULT_MODELS_DIRECTORY = "models";
 	private static final String DEFAULT_CONFIG_DIRECTORY = "config";
-
-	private static final String COMMENT = "#";
-	private static final String STOP_MARK = "###";
 
 	protected static final List<IProperty> propertyList = new LinkedList<>();
 
@@ -154,43 +150,19 @@ public class BenchmarkConfig {
 	}
 
 	private void readSystemNames() {
-
-		List<String> lines = null;
 		try {
-			lines = Files.readAllLines(configPath.resolve("models.txt"), Charset.defaultCharset());
+			NameListReader nameListReader = new NameListReader();
+			nameListReader.read(configPath.resolve("models.txt"));
+			systemNames = nameListReader.getNames();
+			systemIDs = nameListReader.getIDs();
 		} catch (IOException e) {
 			Logger.getInstance().logError("No feature models specified!");
 			Logger.getInstance().logError(e);
 		}
-
-		if (lines != null) {
-			boolean pause = false;
-			systemNames = new ArrayList<>(lines.size());
-			systemIDs = new ArrayList<>(lines.size());
-			int lineNumber = 0;
-			for (String modelName : lines) {
-				// modelName = modelName.trim();
-				if (!modelName.trim().isEmpty()) {
-					if (!modelName.startsWith("\t")) {
-						if (modelName.startsWith(COMMENT)) {
-							if (modelName.equals(STOP_MARK)) {
-								pause = !pause;
-							}
-						} else if (!pause) {
-							systemNames.add(modelName.trim());
-							systemIDs.add(lineNumber);
-						}
-					}
-				}
-				lineNumber++;
-			}
-		} else {
-			systemNames = Collections.<String>emptyList();
-		}
 	}
 
 	private Properties readConfigFile(final Path path) throws Exception {
-		Logger.getInstance().logInfo("Reading config file. (" + path.toString() + ") ... ", false);
+		Logger.getInstance().logInfo("Reading config file. (" + path.toString() + ") ... ", 0);
 		final Properties properties = new Properties();
 		try {
 			properties.load(Files.newInputStream(path));
@@ -200,10 +172,10 @@ public class BenchmarkConfig {
 					prop.setValue(value);
 				}
 			}
-			Logger.getInstance().logInfo("Success!", false);
+			Logger.getInstance().logInfo("Success!", 0);
 			return properties;
 		} catch (IOException e) {
-			Logger.getInstance().logInfo("Fail! -> " + e.getMessage(), false);
+			Logger.getInstance().logInfo("Fail! -> " + e.getMessage(), 0);
 			Logger.getInstance().logError(e);
 			throw e;
 		}

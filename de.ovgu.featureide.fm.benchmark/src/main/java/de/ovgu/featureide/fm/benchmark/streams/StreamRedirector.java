@@ -6,7 +6,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.List;
 
-import de.ovgu.featureide.fm.benchmark.util.Logger;
+import org.sk.utils.Logger;
 
 public class StreamRedirector implements Runnable {
 

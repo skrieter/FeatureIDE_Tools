@@ -5,11 +5,12 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import org.sk.utils.Logger;
+
 import de.ovgu.featureide.fm.benchmark.streams.ErrStreamCollector;
 import de.ovgu.featureide.fm.benchmark.streams.ErrStreamReader;
 import de.ovgu.featureide.fm.benchmark.streams.OutStreamReader;
 import de.ovgu.featureide.fm.benchmark.streams.StreamRedirector;
-import de.ovgu.featureide.fm.benchmark.util.Logger;
 
 public class ProcessRunner<R, A extends Algorithm<R>, K extends Result<R>> {
 
@@ -22,7 +23,7 @@ public class ProcessRunner<R, A extends Algorithm<R>, K extends Result<R>> {
 			System.gc();
 			algorithm.preProcess();
 
-			Logger.getInstance().logInfo(algorithm.getCommand(), 1, true);
+			Logger.getInstance().logInfo(algorithm.getCommand(), 1);
 
 			final List<String> command = algorithm.getCommandElements();
 			if (!command.isEmpty()) {
@@ -61,7 +62,7 @@ public class ProcessRunner<R, A extends Algorithm<R>, K extends Result<R>> {
 				result.setTime(Result.INVALID_TIME);
 			}
 		} catch (Exception e) {
-			Logger.getInstance().logError(e, true);
+			Logger.getInstance().logError(e, 1);
 			result.setTerminatedInTime(false);
 			result.setNoError(false);
 			result.setTime(Result.INVALID_TIME);
@@ -69,7 +70,7 @@ public class ProcessRunner<R, A extends Algorithm<R>, K extends Result<R>> {
 		try {
 			setResult(algorithm, result);
 		} catch (Exception e) {
-			Logger.getInstance().logError(e, true);
+			Logger.getInstance().logError(e, 1);
 			if (terminatedInTime) {
 				result.setNoError(false);
 			}

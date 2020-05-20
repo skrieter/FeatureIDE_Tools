@@ -20,14 +20,16 @@
  */
 package de.ovgu.featureide.fm.benchmark;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+
+import org.sk.utils.Logger;
+import org.sk.utils.io.CSVWriter;
 
 import de.ovgu.featureide.fm.benchmark.process.Algorithm;
 import de.ovgu.featureide.fm.benchmark.process.ProcessRunner;
 import de.ovgu.featureide.fm.benchmark.process.Result;
-import de.ovgu.featureide.fm.benchmark.util.CSVWriter;
-import de.ovgu.featureide.fm.benchmark.util.Logger;
 import de.ovgu.featureide.fm.core.analysis.cnf.CNF;
 
 /**
@@ -50,7 +52,7 @@ public abstract class AAlgorithmBenchmark<R, A extends Algorithm<R>, K extends R
 	}
 
 	@Override
-	protected void addCSVWriters() {
+	protected void addCSVWriters() throws IOException {
 		super.addCSVWriters();
 		dataCSVWriter = addCSVWriter("data.csv", Arrays.asList("ModelID", "AlgorithmID", "SystemIteration",
 				"AlgorithmIteration", "InTime", "NoError", "Time"));
@@ -63,13 +65,14 @@ public abstract class AAlgorithmBenchmark<R, A extends Algorithm<R>, K extends R
 		super.run();
 
 		if (config.systemIterations.getValue() > 0) {
-			Logger.getInstance().logInfo("Start", false);
+			Logger.getInstance().logInfo("Start", 0);
 
 			final ProcessRunner<R,A,K> processRunner = getNewProcessRunner();
 			processRunner.setTimeout(config.timeout.getValue());
 
 			int systemIndexEnd = config.systemNames.size();
 
+			Logger.getInstance().incTabLevel();
 			systemLoop: for (systemIndex = 0; systemIndex < systemIndexEnd; systemIndex++) {
 				logSystem();
 				try {
@@ -93,6 +96,7 @@ public abstract class AAlgorithmBenchmark<R, A extends Algorithm<R>, K extends R
 					Logger.getInstance().logError(e);
 					continue systemLoop;
 				}
+				Logger.getInstance().incTabLevel();
 				for (systemIteration = 1; systemIteration <= config.systemIterations.getValue(); systemIteration++) {
 					try {
 						randomizedModelCNF = adaptModel();
@@ -102,6 +106,7 @@ public abstract class AAlgorithmBenchmark<R, A extends Algorithm<R>, K extends R
 					}
 					config.algorithmIterations.getValue();
 					algorithmIndex = -1;
+
 					algorithmLoop: for (A algorithm : algorithmList) {
 						algorithmIndex++;
 						for (algorithmIteration = 1; algorithmIteration <= algorithm
@@ -125,10 +130,12 @@ public abstract class AAlgorithmBenchmark<R, A extends Algorithm<R>, K extends R
 						}
 					}
 				}
+				Logger.getInstance().decTabLevel();
 			}
-			Logger.getInstance().logInfo("Finished", false);
+			Logger.getInstance().decTabLevel();
+			Logger.getInstance().logInfo("Finished", 0);
 		} else {
-			Logger.getInstance().logInfo("Nothing to do", false);
+			Logger.getInstance().logInfo("Nothing to do", 0);
 		}
 	}
 
@@ -177,7 +184,7 @@ public abstract class AAlgorithmBenchmark<R, A extends Algorithm<R>, K extends R
 		sb.append(algorithmIteration);
 		sb.append("/");
 		sb.append(algorithmList.get(algorithmIndex).getIterations());
-		Logger.getInstance().logInfo(sb.toString(), 2, false);
+		Logger.getInstance().logInfo(sb.toString(), 0);
 	}
 
 	protected abstract CNF prepareModel() throws Exception;
